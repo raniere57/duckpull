@@ -208,7 +208,7 @@ input {
 
 .path-picker {
   display: grid;
-  grid-template-columns: 1fr auto;
+  grid-template-columns: 1fr auto auto;
   gap: 10px;
 }
 
@@ -408,6 +408,10 @@ th {
   .grid,
   .form-grid,
   .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .path-picker {
     grid-template-columns: 1fr;
   }
 

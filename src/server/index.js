@@ -5,7 +5,7 @@ import { Elysia, t } from 'elysia'
 import { clearSessionCookie, createSessionCookie, isAuthenticated, verifyPassword } from './auth.js'
 import { frontendDistDir, host, port } from './config.js'
 import { addLog, getArtifact, getSettings, initDb, listArtifacts, listLogs, saveSettings, updateArtifactSelection, upsertRemoteArtifacts } from './db.js'
-import { pickDirectory } from './folder-picker.js'
+import { openDirectory, pickDirectory } from './folder-picker.js'
 import { fetchRemoteArtifacts, testRemoteConnection } from './remote-api.js'
 import { cleanupStaleSyncArtifacts, getSyncStatus, refreshScheduler, requestSync } from './sync-manager.js'
 
@@ -121,13 +121,25 @@ export const app = new Elysia()
       autoSyncEnabled: t.Optional(t.Boolean())
     }))
   })
-  .post('/api/pick-directory', ({ set }) => {
-    const directory = pickDirectory()
+  .post('/api/pick-directory', async ({ set }) => {
+    const directory = await pickDirectory()
     if (!directory) {
       set.status = 400
       return { detail: 'Nenhuma pasta selecionada ou seletor nativo indisponível neste ambiente.' }
     }
     return { path: directory }
+  })
+  .post('/api/open-directory', async ({ body, set }) => {
+    const ok = await openDirectory(body.path)
+    if (!ok) {
+      set.status = 400
+      return { detail: 'Não foi possível abrir a pasta no explorador do sistema.' }
+    }
+    return { ok: true }
+  }, {
+    body: t.Object({
+      path: t.String()
+    })
   })
   .get('/api/remote-artifacts', async () => {
     const settings = getSettings()

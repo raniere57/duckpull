@@ -33,6 +33,7 @@ const busy = reactive({
   saving: false,
   testing: false,
   pickingDir: false,
+  openingDir: false,
   loadingArtifacts: false,
   syncing: false
 })
@@ -189,6 +190,27 @@ async function browseDestinationDir() {
     setMessage(error.message, 'error')
   } finally {
     busy.pickingDir = false
+  }
+}
+
+async function openCurrentDestinationDir() {
+  if (!settings.destinationDir) {
+    setMessage('Informe uma pasta de destino primeiro.', 'info')
+    return
+  }
+
+  busy.openingDir = true
+  try {
+    await api('/api/open-directory', {
+      method: 'POST',
+      body: JSON.stringify({ path: settings.destinationDir }),
+      timeoutMs: 15000
+    })
+    setMessage('Pasta aberta no explorador do sistema.', 'success')
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    busy.openingDir = false
   }
 }
 
@@ -417,6 +439,9 @@ onUnmounted(() => {
               <input v-model="settings.destinationDir" placeholder="/dados/duckpull" />
               <button type="button" :disabled="busy.pickingDir" @click="browseDestinationDir">
                 {{ busy.pickingDir ? 'Abrindo...' : 'Escolher...' }}
+              </button>
+              <button type="button" :disabled="busy.openingDir || !settings.destinationDir" @click="openCurrentDestinationDir">
+                {{ busy.openingDir ? 'Abrindo pasta...' : 'Abrir pasta' }}
               </button>
             </div>
           </label>

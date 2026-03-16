@@ -392,6 +392,28 @@ export function getArtifactSyncState(artifactId) {
   `).get(artifactId)
 }
 
+export function listInProgressArtifactStates() {
+  return db.prepare(`
+    SELECT
+      s.artifact_id AS artifactId,
+      s.status,
+      s.local_path AS localPath,
+      s.last_synced_at AS lastSyncedAt,
+      s.last_checked_at AS lastCheckedAt,
+      s.local_size_bytes AS localSizeBytes,
+      s.downloaded_bytes AS downloadedBytes,
+      s.total_bytes AS totalBytes,
+      s.download_progress AS downloadProgress,
+      s.last_sync_duration_ms AS lastSyncDurationMs,
+      s.last_error AS lastError,
+      s.remote_sha256 AS remoteSha256,
+      s.remote_etag AS remoteEtag,
+      s.remote_updated_at AS remoteUpdatedAt
+    FROM artifact_sync_state s
+    WHERE s.status IN ('downloading', 'finalizing')
+  `).all()
+}
+
 export function upsertArtifactSyncState(artifactId, fields) {
   const payload = {
     status: fields.status ?? 'never_synced',

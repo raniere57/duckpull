@@ -2,7 +2,7 @@ import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
 import { mkdir, readdir, rename, rm, stat } from 'fs/promises'
 import { join } from 'path'
-import { addLog, getArtifactSyncState, getArtifactsForSync, getSettings, listArtifacts, listLogs, upsertArtifactSyncState, upsertRemoteArtifacts } from './db.js'
+import { addLog, getArtifactSyncState, getArtifactsForSync, getSettings, listArtifacts, listInProgressArtifactStates, listLogs, upsertArtifactSyncState, upsertRemoteArtifacts } from './db.js'
 import { downloadArtifact, fetchRemoteArtifacts } from './remote-api.js'
 
 const runtimeState = {
@@ -19,6 +19,10 @@ let intervalHandle = null
 let queuedSyncRequest = null
 const RETRY_COUNT = Math.max(1, Number(process.env.DUCKPULL_RETRY_COUNT || 3))
 const RETRY_BACKOFF_MS = Math.max(250, Number(process.env.DUCKPULL_RETRY_BACKOFF_MS || 2000))
+const ARTIFACT_SYNC_TIMEOUT_MS = Math.max(
+  60 * 1000,
+  Number(process.env.DUCKPULL_ARTIFACT_SYNC_TIMEOUT_MS || 30 * 60 * 1000)
+)
 
 function nowIso() {
   return new Date().toISOString()
@@ -59,6 +63,22 @@ function artifactStatus(status) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function withTimeout(task, ms, message) {
+  let timer = null
+  try {
+    return await Promise.race([
+      task(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms)
+      })
+    ])
+  } finally {
+    if (timer) {
+      clearTimeout(timer)
+    }
+  }
 }
 
 async function sha256File(filePath) {
@@ -271,9 +291,14 @@ async function syncArtifactWithRetry(settings, artifact, force = false) {
       if (attempt > 1) {
         addLog('warn', `Nova tentativa ${attempt}/${RETRY_COUNT} para ${artifact.name}`, artifact.id)
       }
-      return await syncArtifact(settings, artifact, force)
+      return await withTimeout(
+        () => syncArtifact(settings, artifact, force),
+        ARTIFACT_SYNC_TIMEOUT_MS,
+        `Sincronização de ${artifact.name} excedeu ${Math.floor(ARTIFACT_SYNC_TIMEOUT_MS / 1000)}s`
+      )
     } catch (error) {
       lastError = error
+      await cleanupArtifactTemps(join(settings.destinationDir, sanitizeFilename(artifact.filename || `${artifact.name}.${artifact.type}`)))
       if (attempt >= RETRY_COUNT) {
         break
       }
@@ -420,6 +445,21 @@ export function refreshScheduler() {
 
 export async function cleanupStaleSyncArtifacts() {
   const settings = getSettings()
+  const stuckArtifacts = listInProgressArtifactStates()
+  for (const state of stuckArtifacts) {
+    if (state.localPath) {
+      await cleanupArtifactTemps(state.localPath)
+    }
+    upsertArtifactSyncState(state.artifactId, {
+      ...state,
+      status: 'error',
+      lastCheckedAt: nowIso(),
+      lastError: 'Sincronização anterior interrompida. O artefato foi liberado para nova tentativa.'
+    })
+  }
+  if (stuckArtifacts.length > 0) {
+    addLog('warn', `${stuckArtifacts.length} sincronização(ões) interrompida(s) foram recuperadas no startup.`)
+  }
   if (!settings.destinationDir) {
     return
   }

@@ -265,6 +265,26 @@ function formatSize(value) {
   return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
 }
 
+function formatDuration(value) {
+  if (!value && value !== 0) {
+    return 'n/a'
+  }
+  const totalMs = Number(value)
+  const totalSeconds = Math.floor(totalMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`
+  }
+  return `${seconds}s`
+}
+
+function formatStatusLabel(status) {
+  return String(status || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
 async function boot() {
   try {
     await loadAuthStatus()
@@ -430,6 +450,10 @@ onUnmounted(() => {
             </strong>
             <strong v-else>n/a</strong>
           </article>
+          <article>
+            <span>Duração último sync</span>
+            <strong>{{ formatDuration(runtime.lastSummary?.durationMs) }}</strong>
+          </article>
         </div>
       </section>
 
@@ -468,8 +492,22 @@ onUnmounted(() => {
                 <td>{{ artifact.type }}</td>
                 <td>{{ formatSize(artifact.sizeBytes) }}</td>
                 <td>
-                  <span class="status-pill" :data-state="artifact.status">{{ artifact.status }}</span>
-                  <small v-if="artifact.lastError" class="error-text">{{ artifact.lastError }}</small>
+                  <div class="status-stack">
+                    <span class="status-pill" :data-state="artifact.status">{{ formatStatusLabel(artifact.status) }}</span>
+                    <div v-if="artifact.status === 'downloading'" class="progress-wrap">
+                      <div class="progress-bar">
+                        <div class="progress-fill" :style="{ width: `${Math.round(artifact.downloadProgress || 0)}%` }"></div>
+                      </div>
+                      <small>
+                        {{ Math.round(artifact.downloadProgress || 0) }}%
+                        <template v-if="artifact.downloadedBytes || artifact.totalBytes">
+                          · {{ formatSize(artifact.downloadedBytes || 0) }}
+                          <span v-if="artifact.totalBytes"> / {{ formatSize(artifact.totalBytes) }}</span>
+                        </template>
+                      </small>
+                    </div>
+                    <small v-if="artifact.lastError" class="error-text">{{ artifact.lastError }}</small>
+                  </div>
                 </td>
                 <td>{{ formatTime(artifact.lastSyncedAt) }}</td>
                 <td>{{ artifact.localPath || 'n/a' }}</td>

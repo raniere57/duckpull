@@ -117,10 +117,12 @@ function needsDownload(artifact, state, localExists) {
 }
 
 async function syncArtifact(settings, artifact, force = false) {
+  const startedAtMs = Date.now()
   const safeFilename = sanitizeFilename(artifact.filename || `${artifact.name}.${artifact.type}`)
   const finalPath = join(settings.destinationDir, safeFilename)
   const tempPath = `${finalPath}.tmp`
   const state = getArtifactSyncState(artifact.id)
+  let lastProgressPersistAt = 0
 
   let localExists = true
   let localStat = null
@@ -138,6 +140,10 @@ async function syncArtifact(settings, artifact, force = false) {
       lastCheckedAt: nowIso(),
       lastSyncedAt: state?.lastSyncedAt ?? null,
       lastError: null,
+      downloadedBytes: state?.downloadedBytes ?? null,
+      totalBytes: state?.totalBytes ?? artifact.sizeBytes ?? null,
+      downloadProgress: 100,
+      lastSyncDurationMs: state?.lastSyncDurationMs ?? null,
       remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
       remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
       remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
@@ -151,12 +157,35 @@ async function syncArtifact(settings, artifact, force = false) {
     localPath: finalPath,
     lastCheckedAt: nowIso(),
     lastError: null,
+    downloadedBytes: 0,
+    totalBytes: artifact.sizeBytes ?? null,
+    downloadProgress: 0,
+    lastSyncDurationMs: null,
     remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
     remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
     remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
   })
 
-  await downloadArtifact(settings, artifact, tempPath)
+  await downloadArtifact(settings, artifact, tempPath, async (downloadedBytes, totalBytes) => {
+    const now = Date.now()
+    if (now - lastProgressPersistAt < 250 && totalBytes && downloadedBytes < totalBytes) {
+      return
+    }
+    lastProgressPersistAt = now
+    upsertArtifactSyncState(artifact.id, {
+      status: 'downloading',
+      localPath: finalPath,
+      lastCheckedAt: nowIso(),
+      lastError: null,
+      downloadedBytes,
+      totalBytes,
+      downloadProgress: totalBytes ? Math.min(100, (downloadedBytes / totalBytes) * 100) : null,
+      lastSyncDurationMs: null,
+      remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
+      remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
+      remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+    })
+  })
 
   if (artifact.sha256) {
     const fileHash = await sha256File(tempPath)
@@ -176,6 +205,10 @@ async function syncArtifact(settings, artifact, force = false) {
     lastCheckedAt: nowIso(),
     lastSyncedAt: nowIso(),
     lastError: null,
+    downloadedBytes: finalStat.size,
+    totalBytes: finalStat.size,
+    downloadProgress: 100,
+    lastSyncDurationMs: Date.now() - startedAtMs,
     remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
     remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
     remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
@@ -219,6 +252,10 @@ async function runSyncPass(options) {
         localPath: join(settings.destinationDir, sanitizeFilename(artifact.filename)),
         lastCheckedAt: nowIso(),
         lastError: error.message,
+        downloadedBytes: null,
+        totalBytes: artifact.sizeBytes ?? null,
+        downloadProgress: null,
+        lastSyncDurationMs: null,
         remoteSha256: artifact.sha256 ?? null,
         remoteEtag: artifact.etag ?? null,
         remoteUpdatedAt: artifact.updatedAt ?? null
@@ -243,14 +280,18 @@ async function runSyncLoop(options) {
     runtimeState.finishedAt = null
     runtimeState.lastSummary = null
     addLog('info', `Sincronização iniciada (${nextOptions.reason})`)
+    const runStartedAtMs = Date.now()
 
     queuedSyncRequest = null
     try {
       const summary = await runSyncPass(nextOptions)
-      runtimeState.lastSummary = summary
+      runtimeState.lastSummary = {
+        ...summary,
+        durationMs: Date.now() - runStartedAtMs
+      }
       addLog('info', `Sincronização concluída: ${summary.updated} atualizado(s), ${summary.errors} erro(s).`)
     } catch (error) {
-      runtimeState.lastSummary = { total: 0, updated: 0, errors: 1 }
+      runtimeState.lastSummary = { total: 0, updated: 0, errors: 1, durationMs: Date.now() - runStartedAtMs }
       addLog('error', `Sincronização falhou: ${error.message}`)
     } finally {
       runtimeState.running = false

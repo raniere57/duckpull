@@ -1,8 +1,6 @@
 import { mkdir } from 'fs/promises'
 import { createWriteStream } from 'fs'
 import { dirname } from 'path'
-import { pipeline } from 'stream/promises'
-import { Readable } from 'stream'
 
 function normalizeBaseUrl(baseUrl) {
   return String(baseUrl || '').trim().replace(/\/+$/, '')
@@ -77,7 +75,7 @@ export async function testRemoteConnection(settings) {
   }
 }
 
-export async function downloadArtifact(settings, artifact, tempPath) {
+export async function downloadArtifact(settings, artifact, tempPath, onProgress = null) {
   await mkdir(dirname(tempPath), { recursive: true })
 
   const response = await fetch(artifact.downloadUrl, {
@@ -94,8 +92,30 @@ export async function downloadArtifact(settings, artifact, tempPath) {
     )
   }
 
-  await pipeline(
-    Readable.fromWeb(response.body),
-    createWriteStream(tempPath)
-  )
+  const totalBytes = Number(response.headers.get('content-length') || artifact.sizeBytes || 0) || null
+  const writer = createWriteStream(tempPath)
+  const reader = response.body.getReader()
+
+  let downloadedBytes = 0
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
+      }
+      if (value) {
+        downloadedBytes += value.byteLength
+        writer.write(Buffer.from(value))
+        if (onProgress) {
+          await onProgress(downloadedBytes, totalBytes)
+        }
+      }
+    }
+  } finally {
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve)
+      writer.on('error', reject)
+      writer.end()
+    })
+  }
 }

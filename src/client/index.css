@@ -310,6 +310,12 @@ th {
   color: #92a89c;
 }
 
+.status-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;
@@ -341,6 +347,28 @@ th {
 .status-pill[data-state='error'] {
   background: rgba(184, 68, 68, 0.18);
   color: #ffb1b1;
+}
+
+.progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(26, 40, 34, 0.92);
+  overflow: hidden;
+  border: 1px solid rgba(126, 160, 143, 0.12);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c88939, #f0c05f);
+  transition: width 180ms ease;
 }
 
 .logs {

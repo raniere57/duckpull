@@ -66,6 +66,10 @@ export function initDb() {
       last_synced_at TEXT,
       last_checked_at TEXT,
       local_size_bytes INTEGER,
+      downloaded_bytes INTEGER,
+      total_bytes INTEGER,
+      download_progress REAL,
+      last_sync_duration_ms INTEGER,
       last_error TEXT,
       remote_sha256 TEXT,
       remote_etag TEXT,
@@ -85,12 +89,21 @@ export function initDb() {
   `)
 
   const stateColumns = db.prepare(`PRAGMA table_info('artifact_sync_state')`).all()
-  if (!stateColumns.some((column) => column.name === 'remote_updated_at')) {
-    try {
-      db.exec(`ALTER TABLE artifact_sync_state ADD COLUMN remote_updated_at TEXT`)
-    } catch (error) {
-      if (!String(error.message || '').includes('duplicate column name')) {
-        throw error
+  const expectedStateColumns = [
+    ['remote_updated_at', 'TEXT'],
+    ['downloaded_bytes', 'INTEGER'],
+    ['total_bytes', 'INTEGER'],
+    ['download_progress', 'REAL'],
+    ['last_sync_duration_ms', 'INTEGER']
+  ]
+  for (const [columnName, columnType] of expectedStateColumns) {
+    if (!stateColumns.some((column) => column.name === columnName)) {
+      try {
+        db.exec(`ALTER TABLE artifact_sync_state ADD COLUMN ${columnName} ${columnType}`)
+      } catch (error) {
+        if (!String(error.message || '').includes('duplicate column name')) {
+          throw error
+        }
       }
     }
   }
@@ -306,6 +319,10 @@ export function listArtifacts() {
       s.last_synced_at AS lastSyncedAt,
       s.last_checked_at AS lastCheckedAt,
       s.local_size_bytes AS localSizeBytes,
+      s.downloaded_bytes AS downloadedBytes,
+      s.total_bytes AS totalBytes,
+      s.download_progress AS downloadProgress,
+      s.last_sync_duration_ms AS lastSyncDurationMs,
       s.last_error AS lastError
     FROM artifacts a
     LEFT JOIN artifact_sync_state s ON s.artifact_id = a.id
@@ -362,6 +379,10 @@ export function getArtifactSyncState(artifactId) {
       last_synced_at AS lastSyncedAt,
       last_checked_at AS lastCheckedAt,
       local_size_bytes AS localSizeBytes,
+      downloaded_bytes AS downloadedBytes,
+      total_bytes AS totalBytes,
+      download_progress AS downloadProgress,
+      last_sync_duration_ms AS lastSyncDurationMs,
       last_error AS lastError,
       remote_sha256 AS remoteSha256,
       remote_etag AS remoteEtag,
@@ -378,6 +399,10 @@ export function upsertArtifactSyncState(artifactId, fields) {
     last_synced_at: fields.lastSyncedAt ?? null,
     last_checked_at: fields.lastCheckedAt ?? null,
     local_size_bytes: fields.localSizeBytes ?? null,
+    downloaded_bytes: fields.downloadedBytes ?? null,
+    total_bytes: fields.totalBytes ?? null,
+    download_progress: fields.downloadProgress ?? null,
+    last_sync_duration_ms: fields.lastSyncDurationMs ?? null,
     last_error: fields.lastError ?? null,
     remote_sha256: fields.remoteSha256 ?? null,
     remote_etag: fields.remoteEtag ?? null,
@@ -388,15 +413,20 @@ export function upsertArtifactSyncState(artifactId, fields) {
   db.prepare(`
     INSERT INTO artifact_sync_state (
       artifact_id, status, local_path, last_synced_at, last_checked_at,
-      local_size_bytes, last_error, remote_sha256, remote_etag, remote_updated_at, updated_at
+      local_size_bytes, downloaded_bytes, total_bytes, download_progress, last_sync_duration_ms,
+      last_error, remote_sha256, remote_etag, remote_updated_at, updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(artifact_id) DO UPDATE SET
       status = excluded.status,
       local_path = excluded.local_path,
       last_synced_at = excluded.last_synced_at,
       last_checked_at = excluded.last_checked_at,
       local_size_bytes = excluded.local_size_bytes,
+      downloaded_bytes = excluded.downloaded_bytes,
+      total_bytes = excluded.total_bytes,
+      download_progress = excluded.download_progress,
+      last_sync_duration_ms = excluded.last_sync_duration_ms,
       last_error = excluded.last_error,
       remote_sha256 = excluded.remote_sha256,
       remote_etag = excluded.remote_etag,
@@ -409,6 +439,10 @@ export function upsertArtifactSyncState(artifactId, fields) {
     payload.last_synced_at,
     payload.last_checked_at,
     payload.local_size_bytes,
+    payload.downloaded_bytes,
+    payload.total_bytes,
+    payload.download_progress,
+    payload.last_sync_duration_ms,
     payload.last_error,
     payload.remote_sha256,
     payload.remote_etag,

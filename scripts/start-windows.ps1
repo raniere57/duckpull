@@ -6,6 +6,8 @@ $RuntimeDir = Join-Path $Root "data\runtime"
 $PidFile = Join-Path $RuntimeDir "duckpull.pid"
 $StdoutLog = Join-Path $RuntimeDir "duckpull.log"
 $StderrLog = Join-Path $RuntimeDir "duckpull-error.log"
+$HostValue = "127.0.0.1"
+$PortValue = "5767"
 
 if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
     Write-Host "Bun não encontrado no PATH."
@@ -17,6 +19,23 @@ New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
 $EnvFile = Join-Path $Root ".env"
 if (-not (Test-Path $EnvFile)) {
     Copy-Item (Join-Path $Root ".env.example") $EnvFile
+}
+
+Get-Content $EnvFile -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($_ -match '^DUCKPULL_HOST=(.+)$') {
+        $HostValue = $Matches[1].Trim()
+    }
+    elseif ($_ -match '^DUCKPULL_PORT=(.+)$') {
+        $PortValue = $Matches[1].Trim()
+    }
+}
+
+if (-not $HostValue) {
+    $HostValue = "127.0.0.1"
+}
+
+if (-not $PortValue) {
+    $PortValue = "5767"
 }
 
 $ExistingPid = $null
@@ -48,6 +67,7 @@ Pop-Location
 Start-Sleep -Seconds 1
 if (Get-Process -Id $Process.Id -ErrorAction SilentlyContinue) {
     Write-Host "duckpull iniciado em segundo plano (PID $($Process.Id))."
+    Write-Host "URL: http://$HostValue`:$PortValue"
     Write-Host "Logs: $StdoutLog e $StderrLog"
 }
 else {

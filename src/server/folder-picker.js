@@ -1,7 +1,9 @@
 function runPicker(command) {
   try {
-    const result = Bun.spawnSync(command)
-    if (result.exitCode !== 0) {
+    const result = Bun.spawnSync(command, {
+      timeout: 120000
+    })
+    if (result.exitCode !== 0 || result.signalCode) {
       return null
     }
     const output = result.stdout.toString().trim()
@@ -38,9 +40,37 @@ export function pickDirectory() {
     case 'win32':
       return (
         runPicker([
-          'powershell',
+          'powershell.exe',
           '-NoProfile',
           '-STA',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          [
+            '$app = New-Object -ComObject Shell.Application;',
+            "$folder = $app.BrowseForFolder(0, 'Selecione a pasta de destino do duckpull', 0, 'C:\\');",
+            'if ($folder) { Write-Output $folder.Self.Path }'
+          ].join(' ')
+        ]) ||
+        runPicker([
+          'pwsh',
+          '-NoProfile',
+          '-STA',
+          '-WindowStyle',
+          'Hidden',
+          '-Command',
+          [
+            '$app = New-Object -ComObject Shell.Application;',
+            "$folder = $app.BrowseForFolder(0, 'Selecione a pasta de destino do duckpull', 0, 'C:\\');",
+            'if ($folder) { Write-Output $folder.Self.Path }'
+          ].join(' ')
+        ]) ||
+        runPicker([
+          'powershell.exe',
+          '-NoProfile',
+          '-STA',
+          '-WindowStyle',
+          'Hidden',
           '-Command',
           [
             'Add-Type -AssemblyName System.Windows.Forms;',

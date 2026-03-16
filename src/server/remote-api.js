@@ -19,6 +19,16 @@ function buildRemoteUrl(baseUrl, path) {
   return `${normalizeBaseUrl(baseUrl)}${path.startsWith('/') ? path : `/${path}`}`
 }
 
+function withQuery(url, params) {
+  const nextUrl = new URL(url)
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value !== undefined && value !== null && value !== '') {
+      nextUrl.searchParams.set(key, String(value))
+    }
+  }
+  return nextUrl.toString()
+}
+
 function normalizeArtifact(baseUrl, artifact) {
   const name = String(artifact.name || artifact.filename || artifact.id || '').trim()
   const filename = String(artifact.filename || name).split(/[\\/]/).pop()
@@ -78,11 +88,26 @@ export async function testRemoteConnection(settings) {
   }
 }
 
+export async function fetchArtifactMeta(settings, artifact) {
+  const url = buildRemoteUrl(settings.apiBaseUrl, `/artifacts/${encodeURIComponent(artifact.id)}/meta`)
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+      ...authHeaders(settings.authToken)
+    }
+  })
+  const payload = await getJson(response)
+  return normalizeArtifact(settings.apiBaseUrl, payload)
+}
+
 export async function downloadArtifact(settings, artifact, tempPath, onProgress = null) {
   await mkdir(dirname(tempPath), { recursive: true })
   const controller = new AbortController()
   let overallTimer = null
   let stallTimer = null
+  const requestUrl = withQuery(artifact.downloadUrl, {
+    expected_etag: artifact.etag || undefined
+  })
 
   const resetStallTimer = () => {
     if (stallTimer) {
@@ -99,7 +124,7 @@ export async function downloadArtifact(settings, artifact, tempPath, onProgress 
 
   let response
   try {
-    response = await fetch(artifact.downloadUrl, {
+    response = await fetch(requestUrl, {
       headers: {
         Accept: '*/*',
         ...authHeaders(settings.authToken)
@@ -123,6 +148,11 @@ export async function downloadArtifact(settings, artifact, tempPath, onProgress 
     throw new Error(
       `Falha no download de ${artifact.name}: ${response.status} ${bodyText || response.statusText}`
     )
+  }
+
+  const responseEtag = response.headers.get('etag') || artifact.etag || null
+  if (artifact.etag && responseEtag && artifact.etag !== responseEtag) {
+    throw new Error(`Versão do artefato ${artifact.name} mudou durante o início do download`)
   }
 
   const totalBytes = Number(response.headers.get('content-length') || artifact.sizeBytes || 0) || null
@@ -156,5 +186,15 @@ export async function downloadArtifact(settings, artifact, tempPath, onProgress 
       writer.on('error', reject)
       writer.end()
     })
+  }
+
+  if (totalBytes && downloadedBytes !== totalBytes) {
+    throw new Error(`Download incompleto de ${artifact.name}: ${downloadedBytes} de ${totalBytes} bytes`)
+  }
+
+  return {
+    downloadedBytes,
+    totalBytes,
+    etag: responseEtag
   }
 }

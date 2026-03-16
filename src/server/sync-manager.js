@@ -3,7 +3,7 @@ import { createReadStream } from 'fs'
 import { mkdir, readdir, rename, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import { addLog, getArtifactSyncState, getArtifactsForSync, getSettings, listArtifacts, listInProgressArtifactStates, listLogs, upsertArtifactSyncState, upsertRemoteArtifacts } from './db.js'
-import { downloadArtifact, fetchRemoteArtifacts } from './remote-api.js'
+import { downloadArtifact, fetchArtifactMeta, fetchRemoteArtifacts } from './remote-api.js'
 
 const runtimeState = {
   running: false,
@@ -169,6 +169,7 @@ function needsDownload(artifact, state, localExists) {
 
 async function syncArtifact(settings, artifact, force = false) {
   const startedAtMs = Date.now()
+  const liveArtifact = await fetchArtifactMeta(settings, artifact)
   const safeFilename = sanitizeFilename(artifact.filename || `${artifact.name}.${artifact.type}`)
   const finalPath = join(settings.destinationDir, safeFilename)
   const tempPath = `${finalPath}.tmp`
@@ -184,7 +185,7 @@ async function syncArtifact(settings, artifact, force = false) {
     localExists = false
   }
 
-  if (!force && !needsDownload(artifact, state, localExists)) {
+  if (!force && !needsDownload(liveArtifact, state, localExists)) {
     upsertArtifactSyncState(artifact.id, {
       status: 'synchronized',
       localPath: finalPath,
@@ -193,32 +194,32 @@ async function syncArtifact(settings, artifact, force = false) {
       lastSyncedAt: state?.lastSyncedAt ?? null,
       lastError: null,
       downloadedBytes: state?.downloadedBytes ?? null,
-      totalBytes: state?.totalBytes ?? artifact.sizeBytes ?? null,
+      totalBytes: state?.totalBytes ?? liveArtifact.sizeBytes ?? null,
       downloadProgress: 100,
       lastSyncDurationMs: state?.lastSyncDurationMs ?? null,
-      remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
-      remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
-      remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+      remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+      remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+      remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
     })
     return { downloaded: false }
   }
 
-  addLog('info', `Baixando ${artifact.name}`, artifact.id)
+  addLog('info', `Baixando ${liveArtifact.name}`, artifact.id)
   upsertArtifactSyncState(artifact.id, {
     status: 'downloading',
     localPath: finalPath,
     lastCheckedAt: nowIso(),
     lastError: null,
     downloadedBytes: 0,
-    totalBytes: artifact.sizeBytes ?? null,
+    totalBytes: liveArtifact.sizeBytes ?? null,
     downloadProgress: 0,
     lastSyncDurationMs: null,
-    remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
-    remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
-    remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+    remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+    remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+    remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
   })
 
-  await downloadArtifact(settings, artifact, tempPath, async (downloadedBytes, totalBytes) => {
+  const downloadResult = await downloadArtifact(settings, liveArtifact, tempPath, async (downloadedBytes, totalBytes) => {
     const now = Date.now()
     if (now - lastProgressPersistAt < 250 && totalBytes && downloadedBytes < totalBytes) {
       return
@@ -233,9 +234,9 @@ async function syncArtifact(settings, artifact, force = false) {
       totalBytes,
       downloadProgress: totalBytes ? Math.min(100, (downloadedBytes / totalBytes) * 100) : null,
       lastSyncDurationMs: null,
-      remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
-      remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
-      remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+      remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+      remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+      remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
     })
   })
 
@@ -244,26 +245,30 @@ async function syncArtifact(settings, artifact, force = false) {
     localPath: finalPath,
     lastCheckedAt: nowIso(),
     lastError: null,
-    downloadedBytes: artifact.sizeBytes ?? null,
-    totalBytes: artifact.sizeBytes ?? null,
+    downloadedBytes: downloadResult.downloadedBytes ?? liveArtifact.sizeBytes ?? null,
+    totalBytes: downloadResult.totalBytes ?? liveArtifact.sizeBytes ?? null,
     downloadProgress: 100,
     lastSyncDurationMs: null,
-    remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
-    remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
-    remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+    remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+    remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+    remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
   })
-  addLog('info', `Download concluído, validando ${artifact.name}`, artifact.id)
+  addLog('info', `Download concluído, validando ${liveArtifact.name}`, artifact.id)
 
-  if (artifact.sha256) {
+  if (liveArtifact.sha256) {
     const fileHash = await sha256File(tempPath)
-    if (fileHash !== artifact.sha256) {
+    if (fileHash !== liveArtifact.sha256) {
       await rm(tempPath, { force: true }).catch(() => {})
-      throw new Error(`Checksum inválido para ${artifact.name}`)
+      throw new Error(`Checksum inválido para ${liveArtifact.name}`)
     }
   }
 
   await replaceFileWithRollback(tempPath, finalPath)
   const finalStat = await stat(finalPath)
+
+  if (liveArtifact.sizeBytes && finalStat.size !== liveArtifact.sizeBytes) {
+    throw new Error(`Arquivo final inconsistente para ${liveArtifact.name}: esperado ${liveArtifact.sizeBytes}, obtido ${finalStat.size}`)
+  }
 
   upsertArtifactSyncState(artifact.id, {
     status: 'updated',
@@ -276,11 +281,11 @@ async function syncArtifact(settings, artifact, force = false) {
     totalBytes: finalStat.size,
     downloadProgress: 100,
     lastSyncDurationMs: Date.now() - startedAtMs,
-    remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
-    remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
-    remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+    remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+    remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+    remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
   })
-  addLog('info', `Artefato atualizado: ${artifact.name}`, artifact.id)
+  addLog('info', `Artefato atualizado: ${liveArtifact.name}`, artifact.id)
   return { downloaded: true }
 }
 

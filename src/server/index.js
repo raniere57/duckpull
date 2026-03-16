@@ -4,6 +4,7 @@ import { staticPlugin } from '@elysiajs/static'
 import { Elysia, t } from 'elysia'
 import { frontendDistDir, host, port } from './config.js'
 import { addLog, getArtifact, getSettings, initDb, listArtifacts, listLogs, saveSettings, updateArtifactSelection, upsertRemoteArtifacts } from './db.js'
+import { pickDirectory } from './folder-picker.js'
 import { fetchRemoteArtifacts, testRemoteConnection } from './remote-api.js'
 import { getSyncStatus, refreshScheduler, requestSync } from './sync-manager.js'
 
@@ -58,6 +59,14 @@ export const app = new Elysia()
       syncIntervalMinutes: t.Optional(t.Numeric()),
       autoSyncEnabled: t.Optional(t.Boolean())
     }))
+  })
+  .post('/api/pick-directory', ({ set }) => {
+    const directory = pickDirectory()
+    if (!directory) {
+      set.status = 400
+      return { detail: 'Nenhuma pasta selecionada ou seletor nativo indisponível neste ambiente.' }
+    }
+    return { path: directory }
   })
   .get('/api/remote-artifacts', async () => {
     const settings = getSettings()

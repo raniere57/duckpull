@@ -164,6 +164,12 @@ input {
   grid-column: 1 / -1;
 }
 
+.path-picker {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
 .toggle-row {
   justify-content: flex-end;
 }

@@ -24,6 +24,7 @@ const messageKind = ref('info')
 const busy = reactive({
   saving: false,
   testing: false,
+  pickingDir: false,
   loadingArtifacts: false,
   syncing: false
 })
@@ -119,6 +120,24 @@ async function refreshArtifacts() {
     setMessage(error.message, 'error')
   } finally {
     busy.loadingArtifacts = false
+  }
+}
+
+async function browseDestinationDir() {
+  busy.pickingDir = true
+  try {
+    const payload = await api('/api/pick-directory', {
+      method: 'POST',
+      body: JSON.stringify({})
+    })
+    if (payload?.path) {
+      settings.destinationDir = payload.path
+      setMessage('Pasta de destino selecionada.', 'success')
+    }
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    busy.pickingDir = false
   }
 }
 
@@ -241,7 +260,12 @@ onUnmounted(() => {
 
           <label class="wide">
             <span>Pasta de destino</span>
-            <input v-model="settings.destinationDir" placeholder="/dados/duckpull" />
+            <div class="path-picker">
+              <input v-model="settings.destinationDir" placeholder="/dados/duckpull" />
+              <button type="button" :disabled="busy.pickingDir" @click="browseDestinationDir">
+                {{ busy.pickingDir ? 'Abrindo...' : 'Escolher...' }}
+              </button>
+            </div>
           </label>
 
           <label>

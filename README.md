@@ -108,6 +108,7 @@ Na tela inicial configure:
 - `API base URL`
 - `Token Bearer`
 - `Pasta de destino`
+- botão `Escolher...` para abrir o seletor nativo de pasta no sistema operacional
 - `Intervalo de sincronização`
 - `Sincronização automática`
 

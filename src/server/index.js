@@ -2,6 +2,7 @@ import { existsSync, statSync } from 'fs'
 import { extname, join } from 'path'
 import { staticPlugin } from '@elysiajs/static'
 import { Elysia, t } from 'elysia'
+import { clearSessionCookie, createSessionCookie, isAuthenticated, verifyPassword } from './auth.js'
 import { frontendDistDir, host, port } from './config.js'
 import { addLog, getArtifact, getSettings, initDb, listArtifacts, listLogs, saveSettings, updateArtifactSelection, upsertRemoteArtifacts } from './db.js'
 import { pickDirectory } from './folder-picker.js'
@@ -14,10 +15,32 @@ if (process.env.DUCKPULL_DISABLE_LISTEN !== '1') {
 }
 
 export const app = new Elysia()
+  .derive(({ request, path, set }) => {
+    const publicPaths = new Set([
+      '/api/health',
+      '/api/auth/login',
+      '/api/auth/status'
+    ])
+
+    if (!path.startsWith('/api') || publicPaths.has(path)) {
+      return {}
+    }
+
+    if (!isAuthenticated(request)) {
+      set.status = 401
+      throw new Error('Unauthorized')
+    }
+
+    return {}
+  })
   .onError(({ error, set, code }) => {
     if (code === 'NOT_FOUND') {
       set.status = 404
       return { detail: 'Not Found' }
+    }
+    if (error.message === 'Unauthorized') {
+      set.status = 401
+      return { detail: 'Unauthorized' }
     }
     set.status = 500
     return { detail: error.message || 'Internal Server Error' }
@@ -28,6 +51,26 @@ export const app = new Elysia()
     time: new Date().toISOString(),
     hasFrontendBuild: existsSync(join(frontendDistDir, 'index.html'))
   }))
+  .get('/api/auth/status', ({ request }) => ({
+    authenticated: isAuthenticated(request)
+  }))
+  .post('/api/auth/login', async ({ body, set }) => {
+    const ok = await verifyPassword(body.password)
+    if (!ok) {
+      set.status = 401
+      return { detail: 'Senha inválida.' }
+    }
+    set.headers['set-cookie'] = createSessionCookie()
+    return { ok: true }
+  }, {
+    body: t.Object({
+      password: t.String()
+    })
+  })
+  .post('/api/auth/logout', ({ set }) => {
+    set.headers['set-cookie'] = clearSessionCookie()
+    return { ok: true }
+  })
   .get('/api/settings', () => getSettings())
   .put('/api/settings', async ({ body }) => {
     const settings = saveSettings(body)

@@ -1,6 +1,14 @@
 <script setup>
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 
+const auth = reactive({
+  checking: true,
+  authenticated: false,
+  password: '',
+  loggingIn: false,
+  loggingOut: false
+})
+
 const settings = reactive({
   apiBaseUrl: '',
   authToken: '',
@@ -40,6 +48,7 @@ function setMessage(text, kind = 'info') {
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {})
@@ -49,7 +58,9 @@ async function api(path, options = {}) {
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
-    throw new Error(payload.detail || payload.message || `Erro ${response.status}`)
+    const error = new Error(payload.detail || payload.message || `Erro ${response.status}`)
+    error.status = response.status
+    throw error
   }
 
   if (response.status === 204) {
@@ -57,6 +68,12 @@ async function api(path, options = {}) {
   }
 
   return await response.json()
+}
+
+async function loadAuthStatus() {
+  const payload = await api('/api/auth/status')
+  auth.authenticated = Boolean(payload.authenticated)
+  auth.checking = false
 }
 
 function applySettings(payload) {
@@ -141,6 +158,38 @@ async function browseDestinationDir() {
   }
 }
 
+async function login() {
+  auth.loggingIn = true
+  try {
+    await api('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ password: auth.password })
+    })
+    auth.password = ''
+    auth.authenticated = true
+    setMessage('Acesso liberado.', 'success')
+    await loadSettings()
+    await loadStatus()
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    auth.loggingIn = false
+  }
+}
+
+async function logout() {
+  auth.loggingOut = true
+  try {
+    await api('/api/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({})
+    })
+  } finally {
+    auth.authenticated = false
+    auth.loggingOut = false
+  }
+}
+
 async function updateSelection(artifact) {
   try {
     await api(`/api/artifacts/${encodeURIComponent(artifact.id)}`, {
@@ -199,14 +248,24 @@ function formatSize(value) {
 
 async function boot() {
   try {
-    await loadSettings()
-    await loadStatus()
+    await loadAuthStatus()
+    if (auth.authenticated) {
+      await loadSettings()
+      await loadStatus()
+    }
   } catch (error) {
     setMessage(error.message, 'error')
+    auth.checking = false
   }
 
   pollHandle = window.setInterval(() => {
-    loadStatus().catch(() => {})
+    if (auth.authenticated) {
+      loadStatus().catch((error) => {
+        if (error.status === 401) {
+          auth.authenticated = false
+        }
+      })
+    }
   }, 5000)
 }
 
@@ -220,6 +279,30 @@ onUnmounted(() => {
 
 <template>
   <div class="shell">
+    <div v-if="auth.checking" class="auth-shell">
+      <section class="auth-card">
+        <h2>duckpull</h2>
+        <p>Verificando acesso local...</p>
+      </section>
+    </div>
+
+    <div v-else-if="!auth.authenticated" class="auth-shell">
+      <section class="auth-card">
+        <p class="eyebrow">Acesso Local</p>
+        <h2>Entrar no duckpull</h2>
+        <p class="lead compact">Informe a senha local para acessar a interface.</p>
+        <label class="auth-field">
+          <span>Senha</span>
+          <input v-model="auth.password" type="password" placeholder="Senha de acesso" @keyup.enter="login" />
+        </label>
+        <button class="primary auth-button" :disabled="auth.loggingIn || !auth.password" @click="login">
+          {{ auth.loggingIn ? 'Entrando...' : 'Entrar' }}
+        </button>
+        <p v-if="message" class="message" :data-kind="messageKind">{{ message }}</p>
+      </section>
+    </div>
+
+    <template v-else>
     <header class="hero">
       <div>
         <p class="eyebrow">Local Artifact Pull Client</p>
@@ -235,6 +318,9 @@ onUnmounted(() => {
         <span class="status-pill subtle">
           {{ selectedCount }} selecionado(s)
         </span>
+        <button class="ghost-button" :disabled="auth.loggingOut" @click="logout">
+          {{ auth.loggingOut ? 'Saindo...' : 'Sair' }}
+        </button>
       </div>
     </header>
 
@@ -394,5 +480,6 @@ onUnmounted(() => {
         </div>
       </section>
     </main>
+    </template>
   </div>
 </template>

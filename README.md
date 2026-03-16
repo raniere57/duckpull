@@ -2,6 +2,8 @@
 
 `duckpull` é o cliente leve do ecossistema Duck. Ele roda sem Docker, expõe uma interface web local e sincroniza artefatos `.duckdb` e `.parquet` publicados pelo `duckflow`.
 
+Esta interface agora exige autenticação local por senha.
+
 ## Objetivo
 
 Resolver distribuição local de artefatos sem SMB, Syncthing ou FTP:
@@ -96,6 +98,10 @@ O script de `start`:
 O script de `stop` encerra o processo salvo no PID file.
 
 ## Configuração
+
+A senha inicial de acesso é `@trunks.`.
+
+Ela não é salva em texto puro: o `duckpull` grava apenas o hash criptográfico no SQLite local.
 
 Depois de subir o serviço, abra:
 

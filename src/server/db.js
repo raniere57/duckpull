@@ -1,7 +1,9 @@
 import { Database } from 'bun:sqlite'
+import { randomBytes } from 'crypto'
 import { dbPath, defaultDestinationDir, ensureDir } from './config.js'
 
 const db = new Database(dbPath)
+const DEFAULT_UI_PASSWORD = '@trunks.'
 
 function nowIso() {
   return new Date().toISOString()
@@ -111,8 +113,36 @@ export function initDb() {
       INSERT INTO app_config (key, value, updated_at)
       VALUES (?, ?, ?)
       ON CONFLICT(key) DO NOTHING
-    `).run(key, value, timestamp)
+      `).run(key, value, timestamp)
   }
+
+  const passwordHash = getAppConfigValue('ui_password_hash')
+  if (!passwordHash) {
+    setAppConfigValue('ui_password_hash', Bun.password.hashSync(DEFAULT_UI_PASSWORD), timestamp)
+  }
+
+  const sessionSecret = getAppConfigValue('session_secret')
+  if (!sessionSecret) {
+    setAppConfigValue('session_secret', randomBytes(32).toString('hex'), timestamp)
+  }
+}
+
+export function getAppConfigValue(key) {
+  return db.prepare(`
+    SELECT value
+    FROM app_config
+    WHERE key = ?
+  `).get(key)?.value ?? null
+}
+
+export function setAppConfigValue(key, value, updatedAt = nowIso()) {
+  db.prepare(`
+    INSERT INTO app_config (key, value, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value,
+      updated_at = excluded.updated_at
+  `).run(key, value, updatedAt)
 }
 
 export function getSettings() {

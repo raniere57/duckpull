@@ -60,7 +60,7 @@ duckpull/
 - `GET /api/sync/status`
 - `GET /api/logs`
 
-## Instalação
+## Scripts
 
 Pré-requisito: Bun instalado no sistema.
 
@@ -68,9 +68,9 @@ Pré-requisito: Bun instalado no sistema.
 
 ```bash
 cd duckpull
-chmod +x scripts/install-linux.sh scripts/start-linux.sh
-./scripts/install-linux.sh
+chmod +x scripts/start-linux.sh scripts/stop-linux.sh
 ./scripts/start-linux.sh
+./scripts/stop-linux.sh
 ```
 
 ### Windows
@@ -79,9 +79,21 @@ Abra PowerShell e rode:
 
 ```powershell
 cd duckpull
-.\scripts\install-windows.ps1
 .\scripts\start-windows.ps1
+.\scripts\stop-windows.ps1
 ```
+
+O script de `start`:
+
+- cria `.env` se faltar
+- roda `bun install`
+- faz o build se `dist/` não existir
+- sobe o serviço em segundo plano
+- salva PID em `data/runtime/duckpull.pid`
+- grava log em `data/runtime/duckpull.log`
+- no Windows, erros também vão para `data/runtime/duckpull-error.log`
+
+O script de `stop` encerra o processo salvo no PID file.
 
 ## Configuração
 

@@ -103,6 +103,23 @@ export const app = new Elysia()
       autoSyncEnabled: t.Optional(t.Boolean())
     }))
   })
+  .post('/api/remote-artifacts/refresh', async ({ body }) => {
+    const settings = {
+      ...getSettings(),
+      ...body
+    }
+    const artifacts = await fetchRemoteArtifacts(settings)
+    upsertRemoteArtifacts(artifacts)
+    return { artifacts: listArtifacts() }
+  }, {
+    body: t.Optional(t.Object({
+      apiBaseUrl: t.Optional(t.String()),
+      authToken: t.Optional(t.String()),
+      destinationDir: t.Optional(t.String()),
+      syncIntervalMinutes: t.Optional(t.Numeric()),
+      autoSyncEnabled: t.Optional(t.Boolean())
+    }))
+  })
   .post('/api/pick-directory', ({ set }) => {
     const directory = pickDirectory()
     if (!directory) {
@@ -131,16 +148,29 @@ export const app = new Elysia()
     })
   })
   .post('/api/sync', async ({ body }) => {
+    const settingsOverride = body ? {
+      apiBaseUrl: body.apiBaseUrl,
+      authToken: body.authToken,
+      destinationDir: body.destinationDir,
+      syncIntervalMinutes: body.syncIntervalMinutes,
+      autoSyncEnabled: body.autoSyncEnabled
+    } : null
     return await requestSync({
       reason: body?.reason || 'manual',
       force: body?.force,
+      settingsOverride,
       artifactIds: body?.artifactIds
     })
   }, {
     body: t.Optional(t.Object({
       reason: t.Optional(t.String()),
       force: t.Optional(t.Boolean()),
-      artifactIds: t.Optional(t.Array(t.String()))
+      artifactIds: t.Optional(t.Array(t.String())),
+      apiBaseUrl: t.Optional(t.String()),
+      authToken: t.Optional(t.String()),
+      destinationDir: t.Optional(t.String()),
+      syncIntervalMinutes: t.Optional(t.Numeric()),
+      autoSyncEnabled: t.Optional(t.Boolean())
     }))
   })
   .get('/api/sync/status', () => getSyncStatus())

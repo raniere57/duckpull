@@ -41,6 +41,16 @@ let pollHandle = null
 
 const selectedCount = computed(() => artifacts.value.filter((artifact) => artifact.selected).length)
 
+function currentSettingsPayload() {
+  return {
+    apiBaseUrl: settings.apiBaseUrl,
+    authToken: settings.authToken,
+    destinationDir: settings.destinationDir,
+    syncIntervalMinutes: settings.syncIntervalMinutes,
+    autoSyncEnabled: settings.autoSyncEnabled
+  }
+}
+
 function setMessage(text, kind = 'info') {
   message.value = text
   messageKind.value = kind
@@ -130,7 +140,10 @@ async function testConnection() {
 async function refreshArtifacts() {
   busy.loadingArtifacts = true
   try {
-    const payload = await api('/api/remote-artifacts')
+    const payload = await api('/api/remote-artifacts/refresh', {
+      method: 'POST',
+      body: JSON.stringify(currentSettingsPayload())
+    })
     artifacts.value = payload.artifacts
     setMessage('Lista de artefatos atualizada.', 'success')
   } catch (error) {
@@ -203,13 +216,19 @@ async function updateSelection(artifact) {
 }
 
 async function triggerSync(force = false) {
+  if (!selectedCount.value) {
+    setMessage('Selecione pelo menos um artefato antes de sincronizar.', 'info')
+    return
+  }
+
   busy.syncing = true
   try {
     const payload = await api('/api/sync', {
       method: 'POST',
       body: JSON.stringify({
         reason: 'manual',
-        force
+        force,
+        ...currentSettingsPayload()
       })
     })
     if (payload.queued) {

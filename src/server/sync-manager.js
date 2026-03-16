@@ -34,6 +34,16 @@ function validateSettings(settings) {
   }
 }
 
+function resolveSettings(override = null) {
+  const persisted = getSettings()
+  const merged = {
+    ...persisted,
+    ...(override || {})
+  }
+  validateSettings(merged)
+  return merged
+}
+
 function sanitizeFilename(filename) {
   return String(filename || '')
     .trim()
@@ -175,8 +185,7 @@ async function syncArtifact(settings, artifact, force = false) {
 }
 
 async function runSyncPass(options) {
-  const settings = getSettings()
-  validateSettings(settings)
+  const settings = resolveSettings(options.settingsOverride)
 
   await mkdir(settings.destinationDir, { recursive: true })
   const remoteArtifacts = await fetchRemoteArtifacts(settings)
@@ -256,11 +265,12 @@ async function runSyncLoop(options) {
 }
 
 export async function requestSync(options = {}) {
-  validateSettings(getSettings())
+  resolveSettings(options.settingsOverride)
 
   const normalized = {
     reason: options.reason || 'manual',
     force: Boolean(options.force),
+    settingsOverride: options.settingsOverride || null,
     artifactIds: Array.isArray(options.artifactIds) && options.artifactIds.length
       ? [...new Set(options.artifactIds.map(String))]
       : null

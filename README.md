@@ -82,13 +82,15 @@ chmod +x scripts/start-linux.sh scripts/stop-linux.sh
 
 ### Windows
 
-Abra PowerShell e rode:
+Use preferencialmente os arquivos `.bat`:
 
-```powershell
+```bat
 cd duckpull
-.\scripts\start-windows.ps1
-.\scripts\stop-windows.ps1
+scripts\start-windows.bat
+scripts\stop-windows.bat
 ```
+
+Os `.ps1` continuam existindo internamente, mas os `.bat` são a entrada mais simples para o usuário final.
 
 O script de `start`:
 
@@ -114,9 +116,9 @@ Linux:
 
 Windows:
 
-```powershell
-.\scripts\enable-autostart-windows.ps1
-.\scripts\disable-autostart-windows.ps1
+```bat
+scripts\enable-autostart-windows.bat
+scripts\disable-autostart-windows.bat
 ```
 
 No Linux, o autostart usa `systemd --user`.

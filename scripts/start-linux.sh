@@ -10,10 +10,34 @@ HOST="127.0.0.1"
 PORT="5767"
 FOREGROUND_MODE="${DUCKPULL_FOREGROUND:-0}"
 
-if ! command -v bun >/dev/null 2>&1; then
-  echo "Bun não encontrado no PATH."
-  exit 1
-fi
+ensure_bun() {
+  if command -v bun >/dev/null 2>&1; then
+    return 0
+  fi
+
+  export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+  export PATH="$BUN_INSTALL/bin:$PATH"
+
+  if command -v bun >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "Bun não encontrado e o instalador automático precisa de curl."
+    exit 1
+  fi
+
+  echo "Bun não encontrado. Instalando automaticamente em $BUN_INSTALL ..."
+  curl -fsSL https://bun.sh/install | bash
+  export PATH="$BUN_INSTALL/bin:$PATH"
+
+  if ! command -v bun >/dev/null 2>&1; then
+    echo "Falha ao instalar/configurar Bun automaticamente."
+    exit 1
+  fi
+}
+
+ensure_bun
 
 mkdir -p "$RUNTIME_DIR"
 

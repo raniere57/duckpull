@@ -8,11 +8,47 @@ $StdoutLog = Join-Path $RuntimeDir "duckpull.log"
 $StderrLog = Join-Path $RuntimeDir "duckpull-error.log"
 $HostValue = "127.0.0.1"
 $PortValue = "5767"
+$BunInstall = if ($env:BUN_INSTALL) { $env:BUN_INSTALL } else { Join-Path $HOME ".bun" }
 
-if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
-    Write-Host "Bun não encontrado no PATH."
-    exit 1
+function Ensure-Bun {
+    $bunCommand = Get-Command bun -ErrorAction SilentlyContinue
+    if ($bunCommand) {
+        return $bunCommand.Source
+    }
+
+    $bunCandidate = Join-Path $BunInstall "bin\bun.exe"
+    if (Test-Path $bunCandidate) {
+        $env:BUN_INSTALL = $BunInstall
+        $env:Path = "$($BunInstall)\bin;$env:Path"
+        return $bunCandidate
+    }
+
+    Write-Host "Bun não encontrado. Tentando instalar automaticamente..."
+
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        winget install --id Oven-sh.Bun --exact --accept-source-agreements --accept-package-agreements | Out-Host
+    }
+    else {
+        $InstallScript = Join-Path $env:TEMP "install-bun.ps1"
+        Invoke-WebRequest -UseBasicParsing -Uri "https://bun.sh/install.ps1" -OutFile $InstallScript
+        powershell -NoProfile -ExecutionPolicy Bypass -File $InstallScript | Out-Host
+    }
+
+    $env:BUN_INSTALL = $BunInstall
+    $env:Path = "$($BunInstall)\bin;$env:Path"
+
+    $bunCommand = Get-Command bun -ErrorAction SilentlyContinue
+    if ($bunCommand) {
+        return $bunCommand.Source
+    }
+
+    if (Test-Path $bunCandidate) {
+        return $bunCandidate
+    }
+
+    throw "Falha ao instalar/configurar Bun automaticamente."
 }
+$BunExecutable = Ensure-Bun
 
 New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
 
@@ -53,14 +89,14 @@ if (Test-Path $PidFile) {
 
 $FrontendDist = Join-Path $Root "dist\index.html"
 Push-Location $Root
-bun install
+& $BunExecutable install
 
 if (-not (Test-Path $FrontendDist)) {
     Write-Host "Build do frontend não encontrado. Executando build..."
-    bun run build
+    & $BunExecutable run build
 }
 
-$Process = Start-Process -FilePath "bun" -ArgumentList "start" -WorkingDirectory $Root -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog -PassThru
+$Process = Start-Process -FilePath $BunExecutable -ArgumentList "start" -WorkingDirectory $Root -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog -PassThru
 $Process.Id | Set-Content $PidFile
 Pop-Location
 

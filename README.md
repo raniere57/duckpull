@@ -64,7 +64,12 @@ duckpull/
 
 ## Scripts
 
-Pré-requisito: Bun instalado no sistema.
+Os scripts de `start` agora tentam preparar o ambiente automaticamente.
+
+Se o Bun não estiver instalado:
+
+- no Windows, o script tenta instalar via `winget` e faz fallback para o instalador oficial
+- no Linux, o script tenta instalar via `curl https://bun.sh/install`
 
 ### Linux
 
@@ -88,6 +93,7 @@ cd duckpull
 O script de `start`:
 
 - cria `.env` se faltar
+- tenta instalar/configurar o Bun se ele não existir
 - roda `bun install`
 - faz o build se `dist/` não existir
 - sobe o serviço em segundo plano

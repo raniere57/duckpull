@@ -150,11 +150,6 @@ export async function downloadArtifact(settings, artifact, tempPath, onProgress 
     )
   }
 
-  const responseEtag = response.headers.get('etag') || artifact.etag || null
-  if (artifact.etag && responseEtag && artifact.etag !== responseEtag) {
-    throw new Error(`Versão do artefato ${artifact.name} mudou durante o início do download`)
-  }
-
   const totalBytes = Number(response.headers.get('content-length') || artifact.sizeBytes || 0) || null
   const writer = createWriteStream(tempPath)
   const reader = response.body.getReader()
@@ -195,6 +190,6 @@ export async function downloadArtifact(settings, artifact, tempPath, onProgress 
   return {
     downloadedBytes,
     totalBytes,
-    etag: responseEtag
+    etag: response.headers.get('etag') || artifact.etag || null
   }
 }

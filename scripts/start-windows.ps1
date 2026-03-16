@@ -110,15 +110,17 @@ if (-not (Test-Path $FrontendDist)) {
     & $BunExecutable run build
 }
 
-$Process = Start-Process -FilePath $BunExecutable -ArgumentList "start" -WorkingDirectory $Root -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog -PassThru
+$Process = Start-Process -FilePath $BunExecutable -ArgumentList "start" -WorkingDirectory $Root -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog -WindowStyle Hidden -PassThru
 $Process.Id | Set-Content $PidFile
 Pop-Location
 
 Start-Sleep -Seconds 1
 if (Get-Process -Id $Process.Id -ErrorAction SilentlyContinue) {
     Write-Host "duckpull iniciado em segundo plano (PID $($Process.Id))."
-    Write-Host "URL: http://$HostValue`:$PortValue"
+    $LocalUrl = "http://$HostValue`:$PortValue"
+    Write-Host "URL: $LocalUrl"
     Write-Host "Logs: $StdoutLog e $StderrLog"
+    Start-Process $LocalUrl | Out-Null
 }
 else {
     Remove-Item $PidFile -Force -ErrorAction SilentlyContinue

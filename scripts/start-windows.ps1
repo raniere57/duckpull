@@ -10,17 +10,37 @@ $HostValue = "127.0.0.1"
 $PortValue = "5767"
 $BunInstall = if ($env:BUN_INSTALL) { $env:BUN_INSTALL } else { Join-Path $HOME ".bun" }
 
-function Ensure-Bun {
+function Find-BunExecutable {
     $bunCommand = Get-Command bun -ErrorAction SilentlyContinue
     if ($bunCommand) {
         return $bunCommand.Source
     }
 
-    $bunCandidate = Join-Path $BunInstall "bin\bun.exe"
-    if (Test-Path $bunCandidate) {
-        $env:BUN_INSTALL = $BunInstall
-        $env:Path = "$($BunInstall)\bin;$env:Path"
-        return $bunCandidate
+    $candidatePaths = @(
+        (Join-Path $BunInstall "bin\bun.exe"),
+        (Join-Path $HOME ".bun\bin\bun.exe"),
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Links\bun.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Bun\bun.exe"),
+        (Join-Path $env:ProgramFiles "Bun\bun.exe")
+    ) | Select-Object -Unique
+
+    foreach ($candidate in $candidatePaths) {
+        if ($candidate -and (Test-Path $candidate)) {
+            $candidateDir = Split-Path -Parent $candidate
+            if ($candidateDir -and -not ($env:Path -split ';' | Where-Object { $_ -eq $candidateDir })) {
+                $env:Path = "$candidateDir;$env:Path"
+            }
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Ensure-Bun {
+    $resolved = Find-BunExecutable
+    if ($resolved) {
+        return $resolved
     }
 
     Write-Host "Bun não encontrado. Tentando instalar automaticamente..."
@@ -35,15 +55,9 @@ function Ensure-Bun {
     }
 
     $env:BUN_INSTALL = $BunInstall
-    $env:Path = "$($BunInstall)\bin;$env:Path"
-
-    $bunCommand = Get-Command bun -ErrorAction SilentlyContinue
-    if ($bunCommand) {
-        return $bunCommand.Source
-    }
-
-    if (Test-Path $bunCandidate) {
-        return $bunCandidate
+    $resolved = Find-BunExecutable
+    if ($resolved) {
+        return $resolved
     }
 
     throw "Falha ao instalar/configurar Bun automaticamente."

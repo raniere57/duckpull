@@ -4,6 +4,7 @@ import { dirname } from 'path'
 
 const DOWNLOAD_TIMEOUT_MS = Number(process.env.DUCKPULL_DOWNLOAD_TIMEOUT_MS || 15 * 60 * 1000)
 const STALL_TIMEOUT_MS = Number(process.env.DUCKPULL_STALL_TIMEOUT_MS || 30 * 1000)
+const REMOTE_TIMEOUT_MS = Number(process.env.DUCKPULL_REMOTE_TIMEOUT_MS || 20 * 1000)
 
 function normalizeBaseUrl(baseUrl) {
   return String(baseUrl || '').trim().replace(/\/+$/, '')
@@ -63,9 +64,27 @@ async function getJson(response) {
   return payload
 }
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = REMOTE_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => {
+    controller.abort(new Error(`Tempo limite de ${Math.floor(timeoutMs / 1000)}s ao acessar DuckFlow`))
+  }, timeoutMs)
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    })
+  } catch (error) {
+    throw new Error(error?.cause?.message || error?.message || 'Falha ao conectar no DuckFlow')
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 export async function fetchRemoteArtifacts(settings) {
   const url = buildRemoteUrl(settings.apiBaseUrl, '/artifacts')
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       Accept: 'application/json',
       ...authHeaders(settings.authToken)
@@ -90,7 +109,7 @@ export async function testRemoteConnection(settings) {
 
 export async function fetchArtifactMeta(settings, artifact) {
   const url = buildRemoteUrl(settings.apiBaseUrl, `/artifacts/${encodeURIComponent(artifact.id)}/meta`)
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       Accept: 'application/json',
       ...authHeaders(settings.authToken)

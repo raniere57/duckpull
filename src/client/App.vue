@@ -57,14 +57,31 @@ function setMessage(text, kind = 'info') {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch(path, {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    },
-    ...options
-  })
+  const controller = new AbortController()
+  const timeoutMs = options.timeoutMs ?? 15000
+  const timer = window.setTimeout(() => {
+    controller.abort()
+  }, timeoutMs)
+
+  let response
+  try {
+    response = await fetch(path, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      },
+      ...options,
+      signal: controller.signal
+    })
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Operação excedeu ${Math.floor(timeoutMs / 1000)}s.`)
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timer)
+  }
 
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
@@ -81,7 +98,7 @@ async function api(path, options = {}) {
 }
 
 async function loadAuthStatus() {
-  const payload = await api('/api/auth/status')
+  const payload = await api('/api/auth/status', { timeoutMs: 8000 })
   auth.authenticated = Boolean(payload.authenticated)
   auth.checking = false
 }
@@ -95,12 +112,12 @@ function applySettings(payload) {
 }
 
 async function loadSettings() {
-  const payload = await api('/api/settings')
+  const payload = await api('/api/settings', { timeoutMs: 10000 })
   applySettings(payload)
 }
 
 async function loadStatus() {
-  const payload = await api('/api/sync/status')
+  const payload = await api('/api/sync/status', { timeoutMs: 10000 })
   runtime.value = payload.runtime
   artifacts.value = payload.artifacts
   logs.value = payload.logs
@@ -111,7 +128,8 @@ async function saveSettings() {
   try {
     const payload = await api('/api/settings', {
       method: 'PUT',
-      body: JSON.stringify(settings)
+      body: JSON.stringify(settings),
+      timeoutMs: 15000
     })
     applySettings(payload)
     setMessage('Configurações salvas.', 'success')
@@ -127,7 +145,8 @@ async function testConnection() {
   try {
     const payload = await api('/api/test-connection', {
       method: 'POST',
-      body: JSON.stringify(settings)
+      body: JSON.stringify(settings),
+      timeoutMs: 20000
     })
     setMessage(`Conexão OK. ${payload.artifactCount} artefato(s) encontrado(s).`, 'success')
   } catch (error) {
@@ -142,7 +161,8 @@ async function refreshArtifacts() {
   try {
     const payload = await api('/api/remote-artifacts/refresh', {
       method: 'POST',
-      body: JSON.stringify(currentSettingsPayload())
+      body: JSON.stringify(currentSettingsPayload()),
+      timeoutMs: 20000
     })
     artifacts.value = payload.artifacts
     setMessage('Lista de artefatos atualizada.', 'success')
@@ -158,7 +178,8 @@ async function browseDestinationDir() {
   try {
     const payload = await api('/api/pick-directory', {
       method: 'POST',
-      body: JSON.stringify({})
+      body: JSON.stringify({}),
+      timeoutMs: 120000
     })
     if (payload?.path) {
       settings.destinationDir = payload.path
@@ -176,7 +197,8 @@ async function login() {
   try {
     await api('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ password: auth.password })
+      body: JSON.stringify({ password: auth.password }),
+      timeoutMs: 10000
     })
     auth.password = ''
     auth.authenticated = true
@@ -195,7 +217,8 @@ async function logout() {
   try {
     await api('/api/auth/logout', {
       method: 'POST',
-      body: JSON.stringify({})
+      body: JSON.stringify({}),
+      timeoutMs: 10000
     })
   } finally {
     auth.authenticated = false
@@ -207,7 +230,8 @@ async function updateSelection(artifact) {
   try {
     await api(`/api/artifacts/${encodeURIComponent(artifact.id)}`, {
       method: 'PUT',
-      body: JSON.stringify({ selected: artifact.selected })
+      body: JSON.stringify({ selected: artifact.selected }),
+      timeoutMs: 10000
     })
   } catch (error) {
     artifact.selected = !artifact.selected
@@ -229,7 +253,8 @@ async function triggerSync(force = false) {
         reason: 'manual',
         force,
         ...currentSettingsPayload()
-      })
+      }),
+      timeoutMs: 20000
     })
     if (payload.queued) {
       setMessage('Sincronização enfileirada.', 'info')

@@ -332,7 +332,8 @@ th {
 }
 
 .status-pill[data-state='running'],
-.status-pill[data-state='downloading'] {
+.status-pill[data-state='downloading'],
+.status-pill[data-state='finalizing'] {
   background: rgba(207, 138, 61, 0.18);
   color: #ffd28a;
 }

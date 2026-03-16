@@ -280,6 +280,9 @@ function formatDuration(value) {
 }
 
 function formatStatusLabel(status) {
+  if (status === 'finalizing') {
+    return 'Finalizing'
+  }
   return String(status || '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (char) => char.toUpperCase())
@@ -494,12 +497,17 @@ onUnmounted(() => {
                 <td>
                   <div class="status-stack">
                     <span class="status-pill" :data-state="artifact.status">{{ formatStatusLabel(artifact.status) }}</span>
-                    <div v-if="artifact.status === 'downloading'" class="progress-wrap">
+                    <div v-if="artifact.status === 'downloading' || artifact.status === 'finalizing'" class="progress-wrap">
                       <div class="progress-bar">
                         <div class="progress-fill" :style="{ width: `${Math.round(artifact.downloadProgress || 0)}%` }"></div>
                       </div>
                       <small>
-                        {{ Math.round(artifact.downloadProgress || 0) }}%
+                        <template v-if="artifact.status === 'finalizing'">
+                          Validando integridade e concluindo troca segura
+                        </template>
+                        <template v-else>
+                          {{ Math.round(artifact.downloadProgress || 0) }}%
+                        </template>
                         <template v-if="artifact.downloadedBytes || artifact.totalBytes">
                           · {{ formatSize(artifact.downloadedBytes || 0) }}
                           <span v-if="artifact.totalBytes"> / {{ formatSize(artifact.totalBytes) }}</span>

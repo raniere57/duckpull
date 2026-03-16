@@ -219,6 +219,21 @@ async function syncArtifact(settings, artifact, force = false) {
     })
   })
 
+  upsertArtifactSyncState(artifact.id, {
+    status: 'finalizing',
+    localPath: finalPath,
+    lastCheckedAt: nowIso(),
+    lastError: null,
+    downloadedBytes: artifact.sizeBytes ?? null,
+    totalBytes: artifact.sizeBytes ?? null,
+    downloadProgress: 100,
+    lastSyncDurationMs: null,
+    remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
+    remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
+    remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+  })
+  addLog('info', `Download concluído, validando ${artifact.name}`, artifact.id)
+
   if (artifact.sha256) {
     const fileHash = await sha256File(tempPath)
     if (fileHash !== artifact.sha256) {

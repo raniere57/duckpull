@@ -8,13 +8,13 @@ if ! command -v bun >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -f "$ROOT_DIR/frontend/dist/index.html" ]; then
+if [ ! -f "$ROOT_DIR/dist/index.html" ]; then
   echo "Build do frontend não encontrado. Executando build..."
-  cd "$ROOT_DIR/frontend"
+  cd "$ROOT_DIR"
   bun install
   bun run build
 fi
 
-cd "$ROOT_DIR/backend"
+cd "$ROOT_DIR"
 bun install
-bun index.js
+bun start

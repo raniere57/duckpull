@@ -14,10 +14,7 @@ if [ ! -f "$ROOT_DIR/.env" ]; then
   cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
 fi
 
-cd "$ROOT_DIR/backend"
-bun install
-
-cd "$ROOT_DIR/frontend"
+cd "$ROOT_DIR"
 bun install
 bun run build
 

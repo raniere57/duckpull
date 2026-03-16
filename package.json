@@ -1,14 +1,17 @@
 {
-  "name": "duckpull-frontend",
+  "name": "duckpull",
+  "version": "0.2.0",
   "private": true,
-  "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "bun --watch src/server/index.js",
+    "dev:web": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "start": "bun src/server/index.js"
   },
   "dependencies": {
+    "@elysiajs/static": "1.4.7",
+    "elysia": "1.4.27",
     "vue": "3.4.21"
   },
   "devDependencies": {

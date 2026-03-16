@@ -8,16 +8,16 @@ if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$FrontendDist = Join-Path $Root "frontend\dist\index.html"
+$FrontendDist = Join-Path $Root "dist\index.html"
 if (-not (Test-Path $FrontendDist)) {
     Write-Host "Build do frontend não encontrado. Executando build..."
-    Push-Location (Join-Path $Root "frontend")
+    Push-Location $Root
     bun install
     bun run build
     Pop-Location
 }
 
-Push-Location (Join-Path $Root "backend")
+Push-Location $Root
 bun install
-bun index.js
+bun start
 Pop-Location

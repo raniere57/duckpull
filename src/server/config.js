@@ -4,8 +4,8 @@ import { fileURLToPath } from 'url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
-export const projectRoot = resolve(__dirname, '..')
-export const frontendDistDir = resolve(projectRoot, 'frontend', 'dist')
+export const projectRoot = resolve(__dirname, '..', '..')
+export const frontendDistDir = resolve(projectRoot, 'dist')
 export const host = process.env.DUCKPULL_HOST || '127.0.0.1'
 export const port = Number(process.env.DUCKPULL_PORT || 5767)
 

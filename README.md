@@ -18,8 +18,9 @@ Resolver distribuição local de artefatos sem SMB, Syncthing ou FTP:
 
 ```text
 duckpull/
-  backend/
-  frontend/
+  src/
+    client/
+    server/
   scripts/
   docs/
   data/
@@ -27,8 +28,7 @@ duckpull/
 
 ## Stack
 
-- Backend local: Bun + Elysia
-- Frontend: Vue 3 + Vite
+- Projeto único: Bun + Elysia + Vue 3 + Vite
 - Banco local: SQLite via `bun:sqlite`
 - Porta padrão: `http://localhost:5767`
 
@@ -134,29 +134,27 @@ O contrato remoto esperado está em:
 
 ## Desenvolvimento
 
-### Backend
+### Projeto único
 
 ```bash
-cd duckpull/backend
+cd duckpull
 bun install
 bun run dev
 ```
 
-### Frontend
+### UI em modo Vite
 
 ```bash
-cd duckpull/frontend
-bun install
-bun run dev
+cd duckpull
+bun run dev:web
 ```
 
-Para rodar o frontend servido pelo backend:
+### Build e execução local
 
 ```bash
-cd duckpull/frontend
+cd duckpull
+bun install
 bun run build
-
-cd ../backend
 bun start
 ```
 
@@ -164,4 +162,4 @@ bun start
 
 - O `duckpull` não altera `duckflow` nem `duckpad`.
 - O contrato remoto do DuckFlow foi apenas documentado nesta V1.
-- O backend local serve a build estática do frontend quando `frontend/dist` existir.
+- O servidor local serve a build estática do frontend quando `dist/` existir.

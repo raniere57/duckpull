@@ -15,11 +15,7 @@ if (-not (Test-Path $EnvFile)) {
     Copy-Item (Join-Path $Root ".env.example") $EnvFile
 }
 
-Push-Location (Join-Path $Root "backend")
-bun install
-Pop-Location
-
-Push-Location (Join-Path $Root "frontend")
+Push-Location $Root
 bun install
 bun run build
 Pop-Location

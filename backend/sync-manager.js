@@ -1,0 +1,311 @@
+import { createHash } from 'crypto'
+import { createReadStream } from 'fs'
+import { mkdir, rename, rm, stat } from 'fs/promises'
+import { join } from 'path'
+import { addLog, getArtifactSyncState, getArtifactsForSync, getSettings, listArtifacts, listLogs, upsertArtifactSyncState, upsertRemoteArtifacts } from './db.js'
+import { downloadArtifact, fetchRemoteArtifacts } from './remote-api.js'
+
+const runtimeState = {
+  running: false,
+  queued: false,
+  currentArtifactId: null,
+  reason: null,
+  startedAt: null,
+  finishedAt: null,
+  lastSummary: null
+}
+
+let intervalHandle = null
+let queuedSyncRequest = null
+
+function nowIso() {
+  return new Date().toISOString()
+}
+
+function validateSettings(settings) {
+  if (!settings.apiBaseUrl) {
+    throw new Error('API base URL não configurada.')
+  }
+  if (!settings.authToken) {
+    throw new Error('Token Bearer não configurado.')
+  }
+  if (!settings.destinationDir) {
+    throw new Error('Pasta de destino não configurada.')
+  }
+}
+
+function sanitizeFilename(filename) {
+  return String(filename || '')
+    .trim()
+    .replace(/[\\/]+/g, '_')
+    .replace(/^\.+/, '')
+}
+
+function artifactStatus(status) {
+  return status || 'never_synced'
+}
+
+async function sha256File(filePath) {
+  return await new Promise((resolve, reject) => {
+    const hash = createHash('sha256')
+    const stream = createReadStream(filePath)
+    stream.on('data', (chunk) => hash.update(chunk))
+    stream.on('error', reject)
+    stream.on('end', () => resolve(hash.digest('hex')))
+  })
+}
+
+async function replaceFileWithRollback(tempPath, finalPath) {
+  const backupPath = `${finalPath}.bak`
+  await rm(backupPath, { force: true }).catch(() => {})
+
+  try {
+    await rename(tempPath, finalPath)
+    return
+  } catch {
+    // Windows typically fails when destination already exists.
+  }
+
+  let movedOriginal = false
+  try {
+    await rename(finalPath, backupPath)
+    movedOriginal = true
+  } catch {
+    movedOriginal = false
+  }
+
+  try {
+    await rename(tempPath, finalPath)
+    if (movedOriginal) {
+      await rm(backupPath, { force: true }).catch(() => {})
+    }
+  } catch (error) {
+    if (movedOriginal) {
+      await rename(backupPath, finalPath).catch(() => {})
+    }
+    throw error
+  }
+}
+
+function needsDownload(artifact, state, localExists) {
+  if (!localExists) {
+    return true
+  }
+  if (!state?.lastSyncedAt) {
+    return true
+  }
+  if (artifact.sha256 && artifact.sha256 !== state.remoteSha256) {
+    return true
+  }
+  if (artifact.etag && artifact.etag !== state.remoteEtag) {
+    return true
+  }
+  if (artifact.updatedAt && artifact.updatedAt !== state.remoteUpdatedAt) {
+    return true
+  }
+  return false
+}
+
+async function syncArtifact(settings, artifact, force = false) {
+  const safeFilename = sanitizeFilename(artifact.filename || `${artifact.name}.${artifact.type}`)
+  const finalPath = join(settings.destinationDir, safeFilename)
+  const tempPath = `${finalPath}.tmp`
+  const state = getArtifactSyncState(artifact.id)
+
+  let localExists = true
+  let localStat = null
+  try {
+    localStat = await stat(finalPath)
+  } catch {
+    localExists = false
+  }
+
+  if (!force && !needsDownload(artifact, state, localExists)) {
+    upsertArtifactSyncState(artifact.id, {
+      status: 'synchronized',
+      localPath: finalPath,
+      localSizeBytes: localStat?.size ?? state?.localSizeBytes ?? null,
+      lastCheckedAt: nowIso(),
+      lastSyncedAt: state?.lastSyncedAt ?? null,
+      lastError: null,
+      remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
+      remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
+      remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+    })
+    return { downloaded: false }
+  }
+
+  addLog('info', `Baixando ${artifact.name}`, artifact.id)
+  upsertArtifactSyncState(artifact.id, {
+    status: 'downloading',
+    localPath: finalPath,
+    lastCheckedAt: nowIso(),
+    lastError: null,
+    remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
+    remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
+    remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+  })
+
+  await downloadArtifact(settings, artifact, tempPath)
+
+  if (artifact.sha256) {
+    const fileHash = await sha256File(tempPath)
+    if (fileHash !== artifact.sha256) {
+      await rm(tempPath, { force: true }).catch(() => {})
+      throw new Error(`Checksum inválido para ${artifact.name}`)
+    }
+  }
+
+  await replaceFileWithRollback(tempPath, finalPath)
+  const finalStat = await stat(finalPath)
+
+  upsertArtifactSyncState(artifact.id, {
+    status: 'updated',
+    localPath: finalPath,
+    localSizeBytes: finalStat.size,
+    lastCheckedAt: nowIso(),
+    lastSyncedAt: nowIso(),
+    lastError: null,
+    remoteSha256: artifact.sha256 ?? state?.remoteSha256 ?? null,
+    remoteEtag: artifact.etag ?? state?.remoteEtag ?? null,
+    remoteUpdatedAt: artifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+  })
+  addLog('info', `Artefato atualizado: ${artifact.name}`, artifact.id)
+  return { downloaded: true }
+}
+
+async function runSyncPass(options) {
+  const settings = getSettings()
+  validateSettings(settings)
+
+  await mkdir(settings.destinationDir, { recursive: true })
+  const remoteArtifacts = await fetchRemoteArtifacts(settings)
+  upsertRemoteArtifacts(remoteArtifacts)
+
+  const artifacts = getArtifactsForSync(options.artifactIds)
+  if (!artifacts.length) {
+    addLog('warn', 'Nenhum artefato selecionado para sincronizar.')
+    return {
+      total: 0,
+      updated: 0,
+      errors: 0
+    }
+  }
+
+  let updated = 0
+  let errors = 0
+
+  for (const artifact of artifacts) {
+    runtimeState.currentArtifactId = artifact.id
+    try {
+      const result = await syncArtifact(settings, artifact, options.force)
+      if (result.downloaded) {
+        updated += 1
+      }
+    } catch (error) {
+      errors += 1
+      addLog('error', `Falha ao sincronizar ${artifact.name}: ${error.message}`, artifact.id)
+      upsertArtifactSyncState(artifact.id, {
+        status: 'error',
+        localPath: join(settings.destinationDir, sanitizeFilename(artifact.filename)),
+        lastCheckedAt: nowIso(),
+        lastError: error.message,
+        remoteSha256: artifact.sha256 ?? null,
+        remoteEtag: artifact.etag ?? null,
+        remoteUpdatedAt: artifact.updatedAt ?? null
+      })
+    }
+  }
+
+  return {
+    total: artifacts.length,
+    updated,
+    errors
+  }
+}
+
+async function runSyncLoop(options) {
+  let nextOptions = options
+  do {
+    runtimeState.running = true
+    runtimeState.queued = false
+    runtimeState.reason = nextOptions.reason
+    runtimeState.startedAt = nowIso()
+    runtimeState.finishedAt = null
+    runtimeState.lastSummary = null
+    addLog('info', `Sincronização iniciada (${nextOptions.reason})`)
+
+    queuedSyncRequest = null
+    try {
+      const summary = await runSyncPass(nextOptions)
+      runtimeState.lastSummary = summary
+      addLog('info', `Sincronização concluída: ${summary.updated} atualizado(s), ${summary.errors} erro(s).`)
+    } catch (error) {
+      runtimeState.lastSummary = { total: 0, updated: 0, errors: 1 }
+      addLog('error', `Sincronização falhou: ${error.message}`)
+    } finally {
+      runtimeState.running = false
+      runtimeState.currentArtifactId = null
+      runtimeState.finishedAt = nowIso()
+    }
+
+    nextOptions = queuedSyncRequest
+  } while (nextOptions)
+
+  runtimeState.queued = false
+}
+
+export async function requestSync(options = {}) {
+  validateSettings(getSettings())
+
+  const normalized = {
+    reason: options.reason || 'manual',
+    force: Boolean(options.force),
+    artifactIds: Array.isArray(options.artifactIds) && options.artifactIds.length
+      ? [...new Set(options.artifactIds.map(String))]
+      : null
+  }
+
+  if (runtimeState.running) {
+    queuedSyncRequest = normalized
+    runtimeState.queued = true
+    addLog('info', 'Sincronização já em andamento; nova execução enfileirada.')
+    return { started: false, queued: true }
+  }
+
+  void runSyncLoop(normalized)
+  return { started: true, queued: false }
+}
+
+export function refreshScheduler() {
+  if (intervalHandle) {
+    clearInterval(intervalHandle)
+    intervalHandle = null
+  }
+
+  const settings = getSettings()
+  if (!settings.autoSyncEnabled) {
+    addLog('info', 'Sincronização automática desativada.')
+    return
+  }
+
+  const intervalMs = Math.max(1, Number(settings.syncIntervalMinutes || 15)) * 60 * 1000
+  intervalHandle = setInterval(() => {
+    void requestSync({ reason: 'interval' })
+  }, intervalMs)
+  addLog('info', `Sincronização automática agendada a cada ${settings.syncIntervalMinutes} minuto(s).`)
+}
+
+export function getSyncStatus() {
+  return {
+    runtime: {
+      ...runtimeState,
+      currentArtifactId: runtimeState.currentArtifactId,
+      currentArtifactStatus: runtimeState.currentArtifactId
+        ? artifactStatus(getArtifactSyncState(runtimeState.currentArtifactId)?.status)
+        : null
+    },
+    artifacts: listArtifacts(),
+    logs: listLogs(50)
+  }
+}

@@ -7,9 +7,10 @@ import { frontendDistDir, host, port } from './config.js'
 import { addLog, getArtifact, getSettings, initDb, listArtifacts, listLogs, saveSettings, updateArtifactSelection, upsertRemoteArtifacts } from './db.js'
 import { pickDirectory } from './folder-picker.js'
 import { fetchRemoteArtifacts, testRemoteConnection } from './remote-api.js'
-import { getSyncStatus, refreshScheduler, requestSync } from './sync-manager.js'
+import { cleanupStaleSyncArtifacts, getSyncStatus, refreshScheduler, requestSync } from './sync-manager.js'
 
 initDb()
+await cleanupStaleSyncArtifacts()
 if (process.env.DUCKPULL_DISABLE_LISTEN !== '1') {
   refreshScheduler()
 }

@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
-import { mkdir, rename, rm, stat } from 'fs/promises'
+import { mkdir, readdir, rename, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import { addLog, getArtifactSyncState, getArtifactsForSync, getSettings, listArtifacts, listLogs, upsertArtifactSyncState, upsertRemoteArtifacts } from './db.js'
 import { downloadArtifact, fetchRemoteArtifacts } from './remote-api.js'
@@ -17,6 +17,8 @@ const runtimeState = {
 
 let intervalHandle = null
 let queuedSyncRequest = null
+const RETRY_COUNT = Math.max(1, Number(process.env.DUCKPULL_RETRY_COUNT || 3))
+const RETRY_BACKOFF_MS = Math.max(250, Number(process.env.DUCKPULL_RETRY_BACKOFF_MS || 2000))
 
 function nowIso() {
   return new Date().toISOString()
@@ -53,6 +55,10 @@ function sanitizeFilename(filename) {
 
 function artifactStatus(status) {
   return status || 'never_synced'
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 async function sha256File(filePath) {
@@ -97,6 +103,31 @@ async function replaceFileWithRollback(tempPath, finalPath) {
   }
 }
 
+async function cleanupDirectoryTemps(dirPath) {
+  try {
+    const entries = await readdir(dirPath, { withFileTypes: true })
+    let removed = 0
+    for (const entry of entries) {
+      if (!entry.isFile()) {
+        continue
+      }
+      if (!entry.name.endsWith('.tmp') && !entry.name.endsWith('.bak')) {
+        continue
+      }
+      await rm(join(dirPath, entry.name), { force: true }).catch(() => {})
+      removed += 1
+    }
+    return removed
+  } catch {
+    return 0
+  }
+}
+
+async function cleanupArtifactTemps(finalPath) {
+  await rm(`${finalPath}.tmp`, { force: true }).catch(() => {})
+  await rm(`${finalPath}.bak`, { force: true }).catch(() => {})
+}
+
 function needsDownload(artifact, state, localExists) {
   if (!localExists) {
     return true
@@ -123,6 +154,7 @@ async function syncArtifact(settings, artifact, force = false) {
   const tempPath = `${finalPath}.tmp`
   const state = getArtifactSyncState(artifact.id)
   let lastProgressPersistAt = 0
+  await cleanupArtifactTemps(finalPath)
 
   let localExists = true
   let localStat = null
@@ -217,10 +249,34 @@ async function syncArtifact(settings, artifact, force = false) {
   return { downloaded: true }
 }
 
+async function syncArtifactWithRetry(settings, artifact, force = false) {
+  let lastError = null
+  for (let attempt = 1; attempt <= RETRY_COUNT; attempt += 1) {
+    try {
+      if (attempt > 1) {
+        addLog('warn', `Nova tentativa ${attempt}/${RETRY_COUNT} para ${artifact.name}`, artifact.id)
+      }
+      return await syncArtifact(settings, artifact, force)
+    } catch (error) {
+      lastError = error
+      if (attempt >= RETRY_COUNT) {
+        break
+      }
+      await sleep(RETRY_BACKOFF_MS * attempt)
+    }
+  }
+  throw lastError
+}
+
 async function runSyncPass(options) {
   const settings = resolveSettings(options.settingsOverride)
 
   await mkdir(settings.destinationDir, { recursive: true })
+  const removedTemps = await cleanupDirectoryTemps(settings.destinationDir)
+  if (removedTemps > 0) {
+    addLog('info', `Limpeza preventiva removeu ${removedTemps} arquivo(s) temporário(s).`)
+  }
+
   const remoteArtifacts = await fetchRemoteArtifacts(settings)
   upsertRemoteArtifacts(remoteArtifacts)
 
@@ -240,7 +296,7 @@ async function runSyncPass(options) {
   for (const artifact of artifacts) {
     runtimeState.currentArtifactId = artifact.id
     try {
-      const result = await syncArtifact(settings, artifact, options.force)
+      const result = await syncArtifactWithRetry(settings, artifact, options.force)
       if (result.downloaded) {
         updated += 1
       }
@@ -345,6 +401,17 @@ export function refreshScheduler() {
     void requestSync({ reason: 'interval' })
   }, intervalMs)
   addLog('info', `Sincronização automática agendada a cada ${settings.syncIntervalMinutes} minuto(s).`)
+}
+
+export async function cleanupStaleSyncArtifacts() {
+  const settings = getSettings()
+  if (!settings.destinationDir) {
+    return
+  }
+  const removedTemps = await cleanupDirectoryTemps(settings.destinationDir)
+  if (removedTemps > 0) {
+    addLog('info', `Inicialização removeu ${removedTemps} arquivo(s) temporário(s) órfão(s).`)
+  }
 }
 
 export function getSyncStatus() {

@@ -97,6 +97,25 @@ O script de `start`:
 
 O script de `stop` encerra o processo salvo no PID file.
 
+### Autostart
+
+Linux:
+
+```bash
+./scripts/enable-autostart-linux.sh
+./scripts/disable-autostart-linux.sh
+```
+
+Windows:
+
+```powershell
+.\scripts\enable-autostart-windows.ps1
+.\scripts\disable-autostart-windows.ps1
+```
+
+No Linux, o autostart usa `systemd --user`.
+No Windows, usa o Agendador de Tarefas no logon do usuário.
+
 ## Configuração
 
 A senha inicial de acesso é `@trunks.`.
@@ -144,6 +163,26 @@ Fluxo:
 2. valida checksum quando `sha256` existe
 3. troca o arquivo final
 4. em caso de falha na substituição, mantém rollback do original
+
+## Resiliência operacional
+
+O `duckpull` agora inclui:
+
+- timeout total de download
+- timeout de download parado
+- tentativas automáticas com backoff
+- limpeza automática de arquivos `.tmp` e `.bak` órfãos
+- fila simples para evitar syncs concorrentes
+- autostart opcional no Windows e Linux
+
+Variáveis opcionais no `.env`:
+
+```text
+DUCKPULL_DOWNLOAD_TIMEOUT_MS=900000
+DUCKPULL_STALL_TIMEOUT_MS=30000
+DUCKPULL_RETRY_COUNT=3
+DUCKPULL_RETRY_BACKOFF_MS=2000
+```
 
 ## Contrato esperado do DuckFlow
 

@@ -8,6 +8,7 @@ LOG_FILE="$RUNTIME_DIR/duckpull.log"
 ENV_FILE="$ROOT_DIR/.env"
 HOST="127.0.0.1"
 PORT="5767"
+FOREGROUND_MODE="${DUCKPULL_FOREGROUND:-0}"
 
 if ! command -v bun >/dev/null 2>&1; then
   echo "Bun não encontrado no PATH."
@@ -53,6 +54,12 @@ bun install
 if [ ! -f "$ROOT_DIR/dist/index.html" ]; then
   echo "Build do frontend não encontrado. Executando build..."
   bun run build
+fi
+
+if [ "$FOREGROUND_MODE" = "1" ]; then
+  echo "duckpull iniciando em foreground."
+  echo "URL: http://$HOST:$PORT"
+  exec bun start
 fi
 
 nohup bun start >>"$LOG_FILE" 2>&1 &

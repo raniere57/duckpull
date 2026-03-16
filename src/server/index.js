@@ -1,5 +1,5 @@
-import { existsSync } from 'fs'
-import { join } from 'path'
+import { existsSync, statSync } from 'fs'
+import { extname, join } from 'path'
 import { staticPlugin } from '@elysiajs/static'
 import { Elysia, t } from 'elysia'
 import { frontendDistDir, host, port } from './config.js'
@@ -115,6 +115,18 @@ if (existsSync(join(frontendDistDir, 'index.html'))) {
         set.status = 404
         return { detail: 'API route not found' }
       }
+
+      const normalizedPath = path.startsWith('/') ? path.slice(1) : path
+      const staticFilePath = join(frontendDistDir, normalizedPath)
+      if (normalizedPath && existsSync(staticFilePath) && statSync(staticFilePath).isFile()) {
+        return Bun.file(staticFilePath)
+      }
+
+      if (extname(normalizedPath)) {
+        set.status = 404
+        return { detail: 'Static asset not found' }
+      }
+
       return Bun.file(join(frontendDistDir, 'index.html'))
     })
 }

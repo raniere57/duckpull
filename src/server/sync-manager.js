@@ -1,6 +1,6 @@
 import { createHash } from 'crypto'
 import { createReadStream } from 'fs'
-import { mkdir, readdir, rename, rm, stat } from 'fs/promises'
+import { chmod, mkdir, readdir, rename, rm, stat } from 'fs/promises'
 import { join } from 'path'
 import { addLog, getArtifactSyncState, getArtifactsForSync, getSettings, listArtifacts, listInProgressArtifactStates, listLogs, upsertArtifactSyncState, upsertRemoteArtifacts } from './db.js'
 import { downloadArtifact, fetchArtifactMeta, fetchRemoteArtifacts } from './remote-api.js'
@@ -91,12 +91,44 @@ async function sha256File(filePath) {
   })
 }
 
+async function setFileWritable(filePath) {
+  try {
+    if (process.platform === 'win32') {
+      Bun.spawnSync(['attrib', '-R', filePath], {
+        stdout: 'ignore',
+        stderr: 'ignore'
+      })
+      return
+    }
+    await chmod(filePath, 0o644)
+  } catch {
+    // ignore best-effort permission change
+  }
+}
+
+async function setFileReadOnly(filePath) {
+  try {
+    if (process.platform === 'win32') {
+      Bun.spawnSync(['attrib', '+R', filePath], {
+        stdout: 'ignore',
+        stderr: 'ignore'
+      })
+      return
+    }
+    await chmod(filePath, 0o444)
+  } catch {
+    // ignore best-effort permission change
+  }
+}
+
 async function replaceFileWithRollback(tempPath, finalPath) {
   const backupPath = `${finalPath}.bak`
   await rm(backupPath, { force: true }).catch(() => {})
+  await setFileWritable(finalPath)
 
   try {
     await rename(tempPath, finalPath)
+    await setFileReadOnly(finalPath)
     return
   } catch {
     // Windows typically fails when destination already exists.
@@ -112,12 +144,14 @@ async function replaceFileWithRollback(tempPath, finalPath) {
 
   try {
     await rename(tempPath, finalPath)
+    await setFileReadOnly(finalPath)
     if (movedOriginal) {
       await rm(backupPath, { force: true }).catch(() => {})
     }
   } catch (error) {
     if (movedOriginal) {
       await rename(backupPath, finalPath).catch(() => {})
+      await setFileReadOnly(finalPath)
     }
     throw error
   }
@@ -186,6 +220,9 @@ async function syncArtifact(settings, artifact, force = false) {
   }
 
   if (!force && !needsDownload(liveArtifact, state, localExists)) {
+    if (localExists) {
+      await setFileReadOnly(finalPath)
+    }
     upsertArtifactSyncState(artifact.id, {
       status: 'synchronized',
       localPath: finalPath,

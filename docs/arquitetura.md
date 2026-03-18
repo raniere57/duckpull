@@ -29,15 +29,15 @@ A arquitetura foi desenhada para resolver a distribuição local desses artefato
 
 ```mermaid
 flowchart TD
-    U[Usuario] --> UI[Frontend local Vue e Vite]
-    UI --> API[Servidor local Bun e Elysia]
+    U[Usuario] --> UI[Frontend local]
+    UI --> API[Servidor local]
 
-    API --> AUTH[Autenticacao local]
+    API --> AUTH[Autenticacao]
     API --> DB[SQLite local]
     API --> SYNC[Sync Manager]
-    API --> PICKER[Integracao com sistema operacional]
+    API --> PICKER[Integracao com SO]
 
-    SYNC --> REMOTE[DuckFlow remoto API HTTP]
+    SYNC --> REMOTE[DuckFlow remoto]
     SYNC --> FILES[Pasta local sincronizada]
 
     DB --> CFG[Configuracoes]

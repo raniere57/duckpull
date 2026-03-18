@@ -1,0 +1,3634 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+docs/
+  duckflow-artifacts-api.md
+scripts/
+  disable-autostart-linux.sh
+  disable-autostart-windows.bat
+  disable-autostart-windows.ps1
+  enable-autostart-linux.sh
+  enable-autostart-windows.bat
+  enable-autostart-windows.ps1
+  start-linux.sh
+  start-windows.bat
+  start-windows.ps1
+  stop-linux.sh
+  stop-windows.bat
+  stop-windows.ps1
+src/
+  client/
+    App.vue
+    index.css
+    main.js
+  server/
+    auth.js
+    config.js
+    db.js
+    folder-picker.js
+    index.js
+    remote-api.js
+    sync-manager.js
+.env.example
+.gitignore
+index.html
+package.json
+README.md
+vite.config.js
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="docs/duckflow-artifacts-api.md">
+# Contrato esperado da API remota do DuckFlow
+
+O `duckpull` assume um contrato HTTP simples para descobrir artefatos publicados e fazer download seguro.
+
+## Autenticação
+
+- `Authorization: Bearer <token>`
+
+## Endpoints
+
+### `GET /artifacts`
+
+Lista os artefatos disponíveis para consumo.
+
+Resposta esperada:
+
+```json
+{
+  "artifacts": [
+    {
+      "id": "views",
+      "name": "views",
+      "filename": "views.duckdb",
+      "type": "duckdb",
+      "size_bytes": 1024000,
+      "sha256": "3f0e...",
+      "etag": "\"views-20260316\"",
+      "updated_at": "2026-03-16T11:20:00Z",
+      "download_url": "/artifacts/views/download"
+    }
+  ]
+}
+```
+
+Campos mínimos:
+
+- `id`
+- `name`
+- `filename`
+- `type`
+- `download_url`
+
+Campos recomendados:
+
+- `size_bytes`
+- `sha256`
+- `etag`
+- `updated_at`
+
+### `GET /artifacts/:id/meta`
+
+Retorna somente os metadados de um artefato.
+
+### `GET /artifacts/:id/download`
+
+Retorna o conteúdo binário do arquivo.
+
+Headers recomendados:
+
+- `Content-Type`
+- `Content-Length`
+- `ETag`
+- `Last-Modified`
+- `Content-Disposition: attachment; filename="views.duckdb"`
+
+## Comportamento recomendado no DuckFlow
+
+- `GET /artifacts` deve listar apenas artefatos publicados para distribuição.
+- Downloads devem permitir streaming.
+- `sha256` deve refletir o arquivo final publicado.
+- `download_url` pode ser absoluto ou relativo.
+- Se possível, manter `ETag` e `Last-Modified` coerentes para facilitar detecção de mudança.
+
+## Opcional futuro
+
+- `GET /artifacts/changes?since=...`
+- `GET /artifacts/:id/history`
+- `SSE /artifacts/events`
+
+O `duckpull` V1 não depende desses endpoints opcionais.
+</file>
+
+<file path="scripts/disable-autostart-linux.sh">
+#!/usr/bin/env bash
+set -euo pipefail
+
+SYSTEMD_DIR="${HOME}/.config/systemd/user"
+SERVICE_FILE="${SYSTEMD_DIR}/duckpull.service"
+
+systemctl --user disable --now duckpull.service >/dev/null 2>&1 || true
+rm -f "$SERVICE_FILE"
+systemctl --user daemon-reload
+
+echo "Autostart do duckpull desabilitado."
+</file>
+
+<file path="scripts/disable-autostart-windows.bat">
+@echo off
+setlocal
+set SCRIPT_DIR=%~dp0
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%disable-autostart-windows.ps1"
+exit /b %ERRORLEVEL%
+</file>
+
+<file path="scripts/disable-autostart-windows.ps1">
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$TaskName = "duckpull"
+
+if (Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue) {
+    Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    Write-Host "Autostart do duckpull desabilitado."
+}
+else {
+    Write-Host "Nenhuma tarefa de autostart do duckpull encontrada."
+}
+</file>
+
+<file path="scripts/enable-autostart-linux.sh">
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SYSTEMD_DIR="${HOME}/.config/systemd/user"
+SERVICE_FILE="${SYSTEMD_DIR}/duckpull.service"
+
+mkdir -p "$SYSTEMD_DIR"
+
+cat >"$SERVICE_FILE" <<EOF
+[Unit]
+Description=duckpull local artifact sync client
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=${ROOT_DIR}
+Environment=DUCKPULL_FOREGROUND=1
+ExecStart=${ROOT_DIR}/scripts/start-linux.sh
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target
+EOF
+
+systemctl --user daemon-reload
+systemctl --user enable duckpull.service
+systemctl --user restart duckpull.service
+
+echo "Autostart do duckpull habilitado no systemd do usuário."
+echo "Service file: $SERVICE_FILE"
+</file>
+
+<file path="scripts/enable-autostart-windows.bat">
+@echo off
+setlocal
+set SCRIPT_DIR=%~dp0
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%enable-autostart-windows.ps1"
+set EXIT_CODE=%ERRORLEVEL%
+if not "%EXIT_CODE%"=="0" (
+  echo.
+  echo Falha ao habilitar autostart do duckpull. Codigo: %EXIT_CODE%
+  pause
+)
+exit /b %EXIT_CODE%
+</file>
+
+<file path="scripts/enable-autostart-windows.ps1">
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$TaskName = "duckpull"
+$StartScript = Join-Path $Root "scripts\start-windows.ps1"
+
+$Action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$StartScript`""
+$Trigger = New-ScheduledTaskTrigger -AtLogOn
+$Principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
+
+Register-ScheduledTask -TaskName $TaskName -Action $Action -Trigger $Trigger -Principal $Principal -Force | Out-Null
+Start-ScheduledTask -TaskName $TaskName
+
+Write-Host "Autostart do duckpull habilitado no Agendador de Tarefas."
+</file>
+
+<file path="scripts/stop-windows.bat">
+@echo off
+setlocal
+set SCRIPT_DIR=%~dp0
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%stop-windows.ps1"
+exit /b %ERRORLEVEL%
+</file>
+
+<file path="scripts/stop-windows.ps1">
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$PidFile = Join-Path $Root "data\runtime\duckpull.pid"
+
+if (-not (Test-Path $PidFile)) {
+    Write-Host "duckpull não está em execução."
+    exit 0
+}
+
+$PidValue = (Get-Content $PidFile -ErrorAction SilentlyContinue | Select-Object -First 1).Trim()
+if (-not $PidValue) {
+    Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
+    Write-Host "PID inválido removido."
+    exit 0
+}
+
+$Process = Get-Process -Id ([int]$PidValue) -ErrorAction SilentlyContinue
+if ($Process) {
+    Stop-Process -Id ([int]$PidValue) -Force
+    Write-Host "duckpull interrompido."
+}
+else {
+    Write-Host "Processo não estava mais ativo."
+}
+
+Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
+</file>
+
+<file path="src/client/main.js">
+import { createApp } from 'vue'
+import App from './App.vue'
+import './index.css'
+
+createApp(App).mount('#app')
+</file>
+
+<file path="src/server/auth.js">
+import { createHmac, timingSafeEqual } from 'crypto'
+import { getAppConfigValue } from './db.js'
+
+const COOKIE_NAME = 'duckpull_session'
+const SESSION_TTL_SECONDS = 60 * 60 * 12
+
+function nowSeconds() {
+  return Math.floor(Date.now() / 1000)
+}
+
+function getSessionSecret() {
+  const secret = getAppConfigValue('session_secret')
+  if (!secret) {
+    throw new Error('Segredo de sessão não configurado.')
+  }
+  return secret
+}
+
+function signPayload(payload) {
+  return createHmac('sha256', getSessionSecret()).update(payload).digest('hex')
+}
+
+function parseCookies(headerValue) {
+  if (!headerValue) {
+    return {}
+  }
+  return Object.fromEntries(
+    headerValue.split(';').map((part) => {
+      const [rawKey, ...rest] = part.trim().split('=')
+      return [rawKey, decodeURIComponent(rest.join('='))]
+    })
+  )
+}
+
+export function createSessionCookie() {
+  const expiresAt = nowSeconds() + SESSION_TTL_SECONDS
+  const payload = `${expiresAt}`
+  const signature = signPayload(payload)
+  const token = `${payload}.${signature}`
+  return `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${SESSION_TTL_SECONDS}`
+}
+
+export function clearSessionCookie() {
+  return `${COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`
+}
+
+export function isAuthenticated(request) {
+  const cookieHeader = request.headers.get('cookie')
+  const cookies = parseCookies(cookieHeader)
+  const rawToken = cookies[COOKIE_NAME]
+  if (!rawToken) {
+    return false
+  }
+
+  const [payload, signature] = rawToken.split('.')
+  if (!payload || !signature) {
+    return false
+  }
+
+  const expectedSignature = signPayload(payload)
+  const left = Buffer.from(signature)
+  const right = Buffer.from(expectedSignature)
+  if (left.length !== right.length || !timingSafeEqual(left, right)) {
+    return false
+  }
+
+  const expiresAt = Number(payload)
+  if (!Number.isFinite(expiresAt) || expiresAt <= nowSeconds()) {
+    return false
+  }
+
+  return true
+}
+
+export async function verifyPassword(password) {
+  const passwordHash = getAppConfigValue('ui_password_hash')
+  if (!passwordHash) {
+    return false
+  }
+  return await Bun.password.verify(password, passwordHash)
+}
+</file>
+
+<file path="src/server/config.js">
+import { existsSync, mkdirSync } from 'fs'
+import { dirname, isAbsolute, join, resolve } from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+
+export const projectRoot = resolve(__dirname, '..', '..')
+export const frontendDistDir = resolve(projectRoot, 'dist')
+export const host = process.env.DUCKPULL_HOST || '127.0.0.1'
+export const port = Number(process.env.DUCKPULL_PORT || 5767)
+
+const configuredDataDir = process.env.DUCKPULL_DATA_DIR || './data/runtime'
+export const dataDir = isAbsolute(configuredDataDir)
+  ? configuredDataDir
+  : resolve(projectRoot, configuredDataDir)
+
+export const dbPath = join(dataDir, 'duckpull.db')
+export const defaultDestinationDir = join(dataDir, 'synced-artifacts')
+
+export function ensureDir(target) {
+  if (!existsSync(target)) {
+    mkdirSync(target, { recursive: true })
+  }
+}
+
+ensureDir(dataDir)
+ensureDir(defaultDestinationDir)
+</file>
+
+<file path=".env.example">
+DUCKPULL_HOST=127.0.0.1
+DUCKPULL_PORT=5767
+DUCKPULL_DATA_DIR=./data/runtime
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>duckpull</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/client/main.js"></script>
+  </body>
+</html>
+</file>
+
+<file path="package.json">
+{
+  "name": "duckpull",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun --watch src/server/index.js",
+    "dev:web": "vite",
+    "build": "vite build",
+    "start": "bun src/server/index.js"
+  },
+  "dependencies": {
+    "@elysiajs/static": "1.4.7",
+    "elysia": "1.4.27",
+    "vue": "3.4.21"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "5.0.4",
+    "vite": "5.2.0"
+  }
+}
+</file>
+
+<file path="vite.config.js">
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+
+export default defineConfig({
+  plugins: [vue()],
+  build: {
+    outDir: 'dist',
+    emptyOutDir: true
+  }
+})
+</file>
+
+<file path="scripts/start-windows.bat">
+@echo off
+setlocal
+chcp 65001 >nul
+set SCRIPT_DIR=%~dp0
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%start-windows.ps1"
+set EXIT_CODE=%ERRORLEVEL%
+if not "%EXIT_CODE%"=="0" (
+  echo.
+  echo Falha ao iniciar o duckpull. Codigo: %EXIT_CODE%
+  pause
+)
+exit /b %EXIT_CODE%
+</file>
+
+<file path="scripts/stop-linux.sh">
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PID_FILE="$ROOT_DIR/data/runtime/duckpull.pid"
+
+if [ ! -f "$PID_FILE" ]; then
+  echo "duckpull não está em execução."
+  exit 0
+fi
+
+APP_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
+if [ -z "$APP_PID" ]; then
+  rm -f "$PID_FILE"
+  echo "PID inválido removido."
+  exit 0
+fi
+
+if kill -0 "$APP_PID" 2>/dev/null; then
+  kill "$APP_PID"
+  for _ in 1 2 3 4 5; do
+    if ! kill -0 "$APP_PID" 2>/dev/null; then
+      break
+    fi
+    sleep 1
+  done
+
+  if kill -0 "$APP_PID" 2>/dev/null; then
+    kill -9 "$APP_PID" 2>/dev/null || true
+  fi
+  echo "duckpull interrompido."
+else
+  echo "Processo não estava mais ativo."
+fi
+
+rm -f "$PID_FILE"
+</file>
+
+<file path=".gitignore">
+node_modules/
+dist/
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/runtime/
+.env
+</file>
+
+<file path="src/server/folder-picker.js">
+function decodeOutput(stream) {
+  return new Response(stream).text()
+}
+
+async function runPicker(command, timeoutMs = 120000) {
+  try {
+    const proc = Bun.spawn(command, {
+      stdout: 'pipe',
+      stderr: 'pipe'
+    })
+
+    let timedOut = false
+    const timeoutHandle = setTimeout(() => {
+      timedOut = true
+      try {
+        proc.kill()
+      } catch {
+        // ignore
+      }
+    }, timeoutMs)
+
+    const exitCode = await proc.exited
+    clearTimeout(timeoutHandle)
+
+    if (timedOut || exitCode !== 0) {
+      return null
+    }
+
+    const output = (await decodeOutput(proc.stdout)).trim()
+    return output || null
+  } catch {
+    return null
+  }
+}
+
+export async function pickDirectory() {
+  switch (process.platform) {
+    case 'darwin':
+      return await runPicker([
+        'osascript',
+        '-e',
+        'POSIX path of (choose folder with prompt "Selecione a pasta de destino do duckpull")'
+      ])
+    case 'linux':
+      return (
+        await runPicker([
+          'zenity',
+          '--file-selection',
+          '--directory',
+          '--title=Selecione a pasta de destino do duckpull'
+        ]) ||
+        await runPicker([
+          'kdialog',
+          '--getexistingdirectory',
+          '.',
+          '--title',
+          'Selecione a pasta de destino do duckpull'
+        ])
+      )
+    case 'win32':
+      return (
+        await runPicker([
+          'powershell.exe',
+          '-NoProfile',
+          '-STA',
+          '-Command',
+          [
+            '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;',
+            '$app = New-Object -ComObject Shell.Application;',
+            "$folder = $app.BrowseForFolder(0, 'Selecione a pasta de destino do duckpull', 0, 'C:\\');",
+            'if ($folder) { Write-Output $folder.Self.Path }'
+          ].join(' ')
+        ]) ||
+        await runPicker([
+          'powershell.exe',
+          '-NoProfile',
+          '-STA',
+          '-Command',
+          [
+            '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8;',
+            'Add-Type -AssemblyName System.Windows.Forms;',
+            '$dialog = New-Object System.Windows.Forms.FolderBrowserDialog;',
+            '$dialog.Description = "Selecione a pasta de destino do duckpull";',
+            '$dialog.ShowNewFolderButton = $true;',
+            '$dialog.SelectedPath = "C:\\";',
+            '$result = $dialog.ShowDialog();',
+            'if ($result -eq [System.Windows.Forms.DialogResult]::OK) { Write-Output $dialog.SelectedPath }'
+          ].join(' ')
+        ])
+      )
+    default:
+      return null
+  }
+}
+
+export async function openDirectory(path) {
+  if (!path) {
+    return false
+  }
+
+  try {
+    switch (process.platform) {
+      case 'darwin': {
+        const proc = Bun.spawn(['open', path], { stdout: 'ignore', stderr: 'ignore' })
+        return (await proc.exited) === 0
+      }
+      case 'linux': {
+        const proc = Bun.spawn(['xdg-open', path], { stdout: 'ignore', stderr: 'ignore' })
+        return (await proc.exited) === 0
+      }
+      case 'win32': {
+        const proc = Bun.spawn(['explorer.exe', path], { stdout: 'ignore', stderr: 'ignore' })
+        return (await proc.exited) === 0
+      }
+      default:
+        return false
+    }
+  } catch {
+    return false
+  }
+}
+</file>
+
+<file path="src/server/db.js">
+import { Database } from 'bun:sqlite'
+import { randomBytes } from 'crypto'
+import { dbPath, defaultDestinationDir, ensureDir } from './config.js'
+
+const db = new Database(dbPath)
+const DEFAULT_UI_PASSWORD = '@trunks.'
+
+function nowIso() {
+  return new Date().toISOString()
+}
+
+function boolToInt(value) {
+  return value ? 1 : 0
+}
+
+function intToBool(value) {
+  return Number(value) === 1
+}
+
+export function initDb() {
+  ensureDir(defaultDestinationDir)
+
+  db.exec(`
+    PRAGMA journal_mode = WAL;
+    PRAGMA foreign_keys = ON;
+    PRAGMA busy_timeout = 5000;
+
+    CREATE TABLE IF NOT EXISTS app_config (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS remote_sources (
+      id INTEGER PRIMARY KEY CHECK (id = 1),
+      name TEXT NOT NULL DEFAULT 'default',
+      base_url TEXT NOT NULL DEFAULT '',
+      auth_token TEXT NOT NULL DEFAULT '',
+      enabled INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS artifacts (
+      id TEXT PRIMARY KEY,
+      remote_source_id INTEGER NOT NULL DEFAULT 1,
+      name TEXT NOT NULL,
+      filename TEXT NOT NULL,
+      type TEXT NOT NULL,
+      size_bytes INTEGER,
+      sha256 TEXT,
+      etag TEXT,
+      updated_at_remote TEXT,
+      download_url TEXT NOT NULL,
+      selected INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      last_seen_at TEXT NOT NULL,
+      FOREIGN KEY (remote_source_id) REFERENCES remote_sources (id)
+    );
+
+    CREATE TABLE IF NOT EXISTS artifact_sync_state (
+      artifact_id TEXT PRIMARY KEY,
+      status TEXT NOT NULL DEFAULT 'never_synced',
+      local_path TEXT,
+      last_synced_at TEXT,
+      last_checked_at TEXT,
+      local_size_bytes INTEGER,
+      downloaded_bytes INTEGER,
+      total_bytes INTEGER,
+      download_progress REAL,
+      last_sync_duration_ms INTEGER,
+      last_error TEXT,
+      remote_sha256 TEXT,
+      remote_etag TEXT,
+      remote_updated_at TEXT,
+      updated_at TEXT NOT NULL,
+      FOREIGN KEY (artifact_id) REFERENCES artifacts (id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS sync_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      level TEXT NOT NULL,
+      message TEXT NOT NULL,
+      artifact_id TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY (artifact_id) REFERENCES artifacts (id) ON DELETE SET NULL
+    );
+  `)
+
+  const stateColumns = db.prepare(`PRAGMA table_info('artifact_sync_state')`).all()
+  const expectedStateColumns = [
+    ['remote_updated_at', 'TEXT'],
+    ['downloaded_bytes', 'INTEGER'],
+    ['total_bytes', 'INTEGER'],
+    ['download_progress', 'REAL'],
+    ['last_sync_duration_ms', 'INTEGER']
+  ]
+  for (const [columnName, columnType] of expectedStateColumns) {
+    if (!stateColumns.some((column) => column.name === columnName)) {
+      try {
+        db.exec(`ALTER TABLE artifact_sync_state ADD COLUMN ${columnName} ${columnType}`)
+      } catch (error) {
+        if (!String(error.message || '').includes('duplicate column name')) {
+          throw error
+        }
+      }
+    }
+  }
+
+  const timestamp = nowIso()
+  db.prepare(`
+    INSERT INTO remote_sources (id, name, base_url, auth_token, enabled, created_at, updated_at)
+    VALUES (1, 'default', '', '', 1, ?, ?)
+    ON CONFLICT(id) DO NOTHING
+  `).run(timestamp, timestamp)
+
+  const defaults = [
+    ['destination_dir', defaultDestinationDir],
+    ['sync_interval_minutes', '15'],
+    ['auto_sync_enabled', '1']
+  ]
+
+  for (const [key, value] of defaults) {
+    db.prepare(`
+      INSERT INTO app_config (key, value, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO NOTHING
+      `).run(key, value, timestamp)
+  }
+
+  const passwordHash = getAppConfigValue('ui_password_hash')
+  if (!passwordHash) {
+    setAppConfigValue('ui_password_hash', Bun.password.hashSync(DEFAULT_UI_PASSWORD), timestamp)
+  }
+
+  const sessionSecret = getAppConfigValue('session_secret')
+  if (!sessionSecret) {
+    setAppConfigValue('session_secret', randomBytes(32).toString('hex'), timestamp)
+  }
+}
+
+export function getAppConfigValue(key) {
+  return db.prepare(`
+    SELECT value
+    FROM app_config
+    WHERE key = ?
+  `).get(key)?.value ?? null
+}
+
+export function setAppConfigValue(key, value, updatedAt = nowIso()) {
+  db.prepare(`
+    INSERT INTO app_config (key, value, updated_at)
+    VALUES (?, ?, ?)
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value,
+      updated_at = excluded.updated_at
+  `).run(key, value, updatedAt)
+}
+
+export function getSettings() {
+  const source = db.prepare(`
+    SELECT base_url, auth_token
+    FROM remote_sources
+    WHERE id = 1
+  `).get()
+
+  const configRows = db.prepare(`
+    SELECT key, value
+    FROM app_config
+  `).all()
+
+  const config = Object.fromEntries(configRows.map((row) => [row.key, row.value]))
+
+  return {
+    apiBaseUrl: source?.base_url || '',
+    authToken: source?.auth_token || '',
+    destinationDir: config.destination_dir || defaultDestinationDir,
+    syncIntervalMinutes: Number(config.sync_interval_minutes || 15),
+    autoSyncEnabled: intToBool(config.auto_sync_enabled || 1)
+  }
+}
+
+export function saveSettings(settings) {
+  const timestamp = nowIso()
+  const tx = db.transaction(() => {
+    db.prepare(`
+      UPDATE remote_sources
+      SET base_url = ?, auth_token = ?, updated_at = ?
+      WHERE id = 1
+    `).run(
+      String(settings.apiBaseUrl || '').trim(),
+      String(settings.authToken || '').trim(),
+      timestamp
+    )
+
+    const configPairs = [
+      ['destination_dir', String(settings.destinationDir || defaultDestinationDir).trim()],
+      ['sync_interval_minutes', String(settings.syncIntervalMinutes || 15)],
+      ['auto_sync_enabled', boolToInt(settings.autoSyncEnabled)]
+    ]
+
+    for (const [key, value] of configPairs) {
+      db.prepare(`
+        INSERT INTO app_config (key, value, updated_at)
+        VALUES (?, ?, ?)
+        ON CONFLICT(key) DO UPDATE SET
+          value = excluded.value,
+          updated_at = excluded.updated_at
+      `).run(key, String(value), timestamp)
+    }
+  })
+
+  tx()
+  return getSettings()
+}
+
+export function addLog(level, message, artifactId = null) {
+  db.prepare(`
+    INSERT INTO sync_logs (level, message, artifact_id, created_at)
+    VALUES (?, ?, ?, ?)
+  `).run(level, message, artifactId, nowIso())
+}
+
+export function listLogs(limit = 200) {
+  return db.prepare(`
+    SELECT id, level, message, artifact_id AS artifactId, created_at AS createdAt
+    FROM sync_logs
+    ORDER BY id DESC
+    LIMIT ?
+  `).all(limit)
+}
+
+export function upsertRemoteArtifacts(artifacts) {
+  const timestamp = nowIso()
+  const stmt = db.prepare(`
+    INSERT INTO artifacts (
+      id, remote_source_id, name, filename, type, size_bytes, sha256, etag,
+      updated_at_remote, download_url, selected, created_at, updated_at, last_seen_at
+    )
+    VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      name = excluded.name,
+      filename = excluded.filename,
+      type = excluded.type,
+      size_bytes = excluded.size_bytes,
+      sha256 = excluded.sha256,
+      etag = excluded.etag,
+      updated_at_remote = excluded.updated_at_remote,
+      download_url = excluded.download_url,
+      updated_at = excluded.updated_at,
+      last_seen_at = excluded.last_seen_at
+  `)
+
+  const tx = db.transaction((items) => {
+    for (const artifact of items) {
+      stmt.run(
+        artifact.id,
+        artifact.name,
+        artifact.filename,
+        artifact.type,
+        artifact.sizeBytes ?? null,
+        artifact.sha256 ?? null,
+        artifact.etag ?? null,
+        artifact.updatedAt ?? null,
+        artifact.downloadUrl,
+        boolToInt(artifact.selected),
+        timestamp,
+        timestamp,
+        timestamp
+      )
+    }
+  })
+
+  tx(artifacts)
+}
+
+export function updateArtifactSelection(artifactId, selected) {
+  db.prepare(`
+    UPDATE artifacts
+    SET selected = ?, updated_at = ?
+    WHERE id = ?
+  `).run(boolToInt(selected), nowIso(), artifactId)
+}
+
+export function getArtifact(artifactId) {
+  return db.prepare(`
+    SELECT
+      a.id,
+      a.name,
+      a.filename,
+      a.type,
+      a.size_bytes AS sizeBytes,
+      a.sha256,
+      a.etag,
+      a.updated_at_remote AS updatedAt,
+      a.download_url AS downloadUrl,
+      a.selected AS selected
+    FROM artifacts a
+    WHERE a.id = ?
+  `).get(artifactId)
+}
+
+export function listArtifacts() {
+  return db.prepare(`
+    SELECT
+      a.id,
+      a.name,
+      a.filename,
+      a.type,
+      a.size_bytes AS sizeBytes,
+      a.sha256,
+      a.etag,
+      a.updated_at_remote AS updatedAt,
+      a.download_url AS downloadUrl,
+      a.selected AS selected,
+      COALESCE(s.status, 'never_synced') AS status,
+      s.local_path AS localPath,
+      s.last_synced_at AS lastSyncedAt,
+      s.last_checked_at AS lastCheckedAt,
+      s.local_size_bytes AS localSizeBytes,
+      s.downloaded_bytes AS downloadedBytes,
+      s.total_bytes AS totalBytes,
+      s.download_progress AS downloadProgress,
+      s.last_sync_duration_ms AS lastSyncDurationMs,
+      s.last_error AS lastError
+    FROM artifacts a
+    LEFT JOIN artifact_sync_state s ON s.artifact_id = a.id
+    ORDER BY a.type ASC, a.name ASC
+  `).all().map((row) => ({
+    ...row,
+    selected: intToBool(row.selected)
+  }))
+}
+
+export function getArtifactsForSync(artifactIds = null) {
+  if (artifactIds?.length) {
+    const placeholders = artifactIds.map(() => '?').join(', ')
+    return db.prepare(`
+      SELECT
+        a.id,
+        a.name,
+        a.filename,
+        a.type,
+        a.size_bytes AS sizeBytes,
+        a.sha256,
+        a.etag,
+        a.updated_at_remote AS updatedAt,
+        a.download_url AS downloadUrl
+      FROM artifacts a
+      WHERE a.id IN (${placeholders})
+      ORDER BY a.name ASC
+    `).all(...artifactIds)
+  }
+
+  return db.prepare(`
+    SELECT
+      a.id,
+      a.name,
+      a.filename,
+      a.type,
+      a.size_bytes AS sizeBytes,
+      a.sha256,
+      a.etag,
+      a.updated_at_remote AS updatedAt,
+      a.download_url AS downloadUrl
+    FROM artifacts a
+    WHERE a.selected = 1
+    ORDER BY a.name ASC
+  `).all()
+}
+
+export function getArtifactSyncState(artifactId) {
+  return db.prepare(`
+    SELECT
+      artifact_id AS artifactId,
+      status,
+      local_path AS localPath,
+      last_synced_at AS lastSyncedAt,
+      last_checked_at AS lastCheckedAt,
+      local_size_bytes AS localSizeBytes,
+      downloaded_bytes AS downloadedBytes,
+      total_bytes AS totalBytes,
+      download_progress AS downloadProgress,
+      last_sync_duration_ms AS lastSyncDurationMs,
+      last_error AS lastError,
+      remote_sha256 AS remoteSha256,
+      remote_etag AS remoteEtag,
+      remote_updated_at AS remoteUpdatedAt
+    FROM artifact_sync_state
+    WHERE artifact_id = ?
+  `).get(artifactId)
+}
+
+export function listInProgressArtifactStates() {
+  return db.prepare(`
+    SELECT
+      s.artifact_id AS artifactId,
+      s.status,
+      s.local_path AS localPath,
+      s.last_synced_at AS lastSyncedAt,
+      s.last_checked_at AS lastCheckedAt,
+      s.local_size_bytes AS localSizeBytes,
+      s.downloaded_bytes AS downloadedBytes,
+      s.total_bytes AS totalBytes,
+      s.download_progress AS downloadProgress,
+      s.last_sync_duration_ms AS lastSyncDurationMs,
+      s.last_error AS lastError,
+      s.remote_sha256 AS remoteSha256,
+      s.remote_etag AS remoteEtag,
+      s.remote_updated_at AS remoteUpdatedAt
+    FROM artifact_sync_state s
+    WHERE s.status IN ('downloading', 'finalizing')
+  `).all()
+}
+
+export function upsertArtifactSyncState(artifactId, fields) {
+  const payload = {
+    status: fields.status ?? 'never_synced',
+    local_path: fields.localPath ?? null,
+    last_synced_at: fields.lastSyncedAt ?? null,
+    last_checked_at: fields.lastCheckedAt ?? null,
+    local_size_bytes: fields.localSizeBytes ?? null,
+    downloaded_bytes: fields.downloadedBytes ?? null,
+    total_bytes: fields.totalBytes ?? null,
+    download_progress: fields.downloadProgress ?? null,
+    last_sync_duration_ms: fields.lastSyncDurationMs ?? null,
+    last_error: fields.lastError ?? null,
+    remote_sha256: fields.remoteSha256 ?? null,
+    remote_etag: fields.remoteEtag ?? null,
+    remote_updated_at: fields.remoteUpdatedAt ?? null,
+    updated_at: nowIso()
+  }
+
+  db.prepare(`
+    INSERT INTO artifact_sync_state (
+      artifact_id, status, local_path, last_synced_at, last_checked_at,
+      local_size_bytes, downloaded_bytes, total_bytes, download_progress, last_sync_duration_ms,
+      last_error, remote_sha256, remote_etag, remote_updated_at, updated_at
+    )
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(artifact_id) DO UPDATE SET
+      status = excluded.status,
+      local_path = excluded.local_path,
+      last_synced_at = excluded.last_synced_at,
+      last_checked_at = excluded.last_checked_at,
+      local_size_bytes = excluded.local_size_bytes,
+      downloaded_bytes = excluded.downloaded_bytes,
+      total_bytes = excluded.total_bytes,
+      download_progress = excluded.download_progress,
+      last_sync_duration_ms = excluded.last_sync_duration_ms,
+      last_error = excluded.last_error,
+      remote_sha256 = excluded.remote_sha256,
+      remote_etag = excluded.remote_etag,
+      remote_updated_at = excluded.remote_updated_at,
+      updated_at = excluded.updated_at
+  `).run(
+    artifactId,
+    payload.status,
+    payload.local_path,
+    payload.last_synced_at,
+    payload.last_checked_at,
+    payload.local_size_bytes,
+    payload.downloaded_bytes,
+    payload.total_bytes,
+    payload.download_progress,
+    payload.last_sync_duration_ms,
+    payload.last_error,
+    payload.remote_sha256,
+    payload.remote_etag,
+    payload.remote_updated_at,
+    payload.updated_at
+  )
+}
+</file>
+
+<file path="scripts/start-linux.sh">
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RUNTIME_DIR="$ROOT_DIR/data/runtime"
+PID_FILE="$RUNTIME_DIR/duckpull.pid"
+LOG_FILE="$RUNTIME_DIR/duckpull.log"
+ENV_FILE="$ROOT_DIR/.env"
+HOST="127.0.0.1"
+PORT="5767"
+FOREGROUND_MODE="${DUCKPULL_FOREGROUND:-0}"
+
+ensure_bun() {
+  if command -v bun >/dev/null 2>&1; then
+    return 0
+  fi
+
+  export BUN_INSTALL="${BUN_INSTALL:-$HOME/.bun}"
+  export PATH="$BUN_INSTALL/bin:$PATH"
+
+  if command -v bun >/dev/null 2>&1; then
+    return 0
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    echo "Bun não encontrado e o instalador automático precisa de curl."
+    exit 1
+  fi
+
+  echo "Bun não encontrado. Instalando automaticamente em $BUN_INSTALL ..."
+  curl -fsSL https://bun.sh/install | bash
+  export PATH="$BUN_INSTALL/bin:$PATH"
+
+  if ! command -v bun >/dev/null 2>&1; then
+    echo "Falha ao instalar/configurar Bun automaticamente."
+    exit 1
+  fi
+}
+
+ensure_bun
+
+mkdir -p "$RUNTIME_DIR"
+
+if [ -f "$PID_FILE" ]; then
+  CURRENT_PID="$(cat "$PID_FILE" 2>/dev/null || true)"
+  if [ -n "$CURRENT_PID" ] && kill -0 "$CURRENT_PID" 2>/dev/null; then
+    echo "duckpull já está em execução (PID $CURRENT_PID)."
+    exit 0
+  fi
+  rm -f "$PID_FILE"
+fi
+
+if [ ! -f "$ENV_FILE" ]; then
+  cp "$ROOT_DIR/.env.example" "$ENV_FILE"
+fi
+
+while IFS='=' read -r key value; do
+  case "$key" in
+    DUCKPULL_HOST)
+      HOST="${value:-$HOST}"
+      ;;
+    DUCKPULL_PORT)
+      PORT="${value:-$PORT}"
+      ;;
+  esac
+done < <(grep -E '^(DUCKPULL_HOST|DUCKPULL_PORT)=' "$ENV_FILE" 2>/dev/null || true)
+
+if [ -z "$HOST" ]; then
+  HOST="127.0.0.1"
+fi
+if [ -z "$PORT" ]; then
+  PORT="5767"
+fi
+
+cd "$ROOT_DIR"
+bun install
+
+if [ ! -f "$ROOT_DIR/dist/index.html" ]; then
+  echo "Build do frontend não encontrado. Executando build..."
+  bun run build
+fi
+
+if [ "$FOREGROUND_MODE" = "1" ]; then
+  echo "duckpull iniciando em foreground."
+  echo "URL: http://$HOST:$PORT"
+  exec bun start
+fi
+
+nohup bun start >>"$LOG_FILE" 2>&1 &
+APP_PID=$!
+echo "$APP_PID" > "$PID_FILE"
+
+sleep 1
+if kill -0 "$APP_PID" 2>/dev/null; then
+  echo "duckpull iniciado em segundo plano (PID $APP_PID)."
+  echo "URL: http://$HOST:$PORT"
+  echo "Log: $LOG_FILE"
+else
+  echo "duckpull falhou ao iniciar. Verifique $LOG_FILE"
+  rm -f "$PID_FILE"
+  exit 1
+fi
+</file>
+
+<file path="src/client/index.css">
+:root {
+  color-scheme: dark;
+  font-family: 'Aptos', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  line-height: 1.4;
+  font-weight: 400;
+  color: #ebf4ef;
+  background:
+    radial-gradient(circle at top left, rgba(55, 117, 88, 0.35), transparent 28%),
+    radial-gradient(circle at top right, rgba(188, 99, 47, 0.28), transparent 24%),
+    linear-gradient(180deg, #08110f 0%, #0d1613 42%, #0b100f 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  border: 0;
+  border-radius: 12px;
+  padding: 0.85rem 1.15rem;
+  background: #192521;
+  color: #edf7f2;
+  cursor: pointer;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  background: #22332d;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+button.primary {
+  background: linear-gradient(135deg, #347f63, #4ea975);
+  color: #05110c;
+  font-weight: 700;
+}
+
+button.accent {
+  background: linear-gradient(135deg, #cc8a42, #f0c05f);
+  color: #211405;
+  font-weight: 700;
+}
+
+button.ghost-button {
+  background: rgba(18, 29, 25, 0.92);
+  border: 1px solid rgba(126, 160, 143, 0.18);
+}
+
+input {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 177, 156, 0.18);
+  background: rgba(9, 14, 12, 0.68);
+  color: inherit;
+  padding: 0.85rem 0.95rem;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+.shell {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.auth-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(100%, 460px);
+  padding: 32px;
+  border-radius: 28px;
+  border: 1px solid rgba(126, 160, 143, 0.18);
+  background: rgba(10, 17, 15, 0.84);
+  box-shadow: 0 18px 64px rgba(0, 0, 0, 0.24);
+}
+
+.auth-card h2 {
+  margin: 0 0 12px;
+  font-size: 2rem;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.auth-button {
+  width: 100%;
+  margin-top: 18px;
+}
+
+.lead.compact {
+  margin-top: 0;
+}
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: flex-start;
+  padding: 28px;
+  border: 1px solid rgba(126, 160, 143, 0.18);
+  border-radius: 28px;
+  background: rgba(10, 17, 15, 0.78);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 18px 64px rgba(0, 0, 0, 0.24);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #8eb39c;
+  font-size: 0.74rem;
+}
+
+.hero h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 4rem);
+  line-height: 1;
+}
+
+.lead {
+  max-width: 720px;
+  color: #abc0b4;
+  margin: 12px 0 0;
+}
+
+.hero-status {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1.2fr 0.8fr;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.panel {
+  border: 1px solid rgba(126, 160, 143, 0.16);
+  border-radius: 24px;
+  background: rgba(11, 17, 15, 0.76);
+  padding: 22px;
+  box-shadow: 0 18px 54px rgba(0, 0, 0, 0.16);
+}
+
+.config-panel,
+.artifacts-panel,
+.logs-panel {
+  grid-column: 1 / -1;
+}
+
+.panel-head h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.panel-head p {
+  margin: 8px 0 0;
+  color: #90a79a;
+}
+
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.form-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-grid .wide {
+  grid-column: 1 / -1;
+}
+
+.path-picker {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+}
+
+.toggle-row {
+  justify-content: flex-end;
+}
+
+.toggle-row input {
+  width: 20px;
+  height: 20px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.message {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: rgba(25, 37, 33, 0.9);
+}
+
+.message[data-kind='success'] {
+  color: #a7f5ca;
+}
+
+.message[data-kind='error'] {
+  color: #f1a1a1;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.metrics article {
+  border-radius: 18px;
+  background: rgba(20, 32, 27, 0.82);
+  padding: 16px;
+  border: 1px solid rgba(126, 160, 143, 0.12);
+}
+
+.metrics span {
+  display: block;
+  font-size: 0.84rem;
+  color: #92a89c;
+}
+
+.metrics strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1rem;
+}
+
+.table-wrap {
+  margin-top: 18px;
+  overflow: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(126, 160, 143, 0.12);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 980px;
+}
+
+th,
+td {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(126, 160, 143, 0.1);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #8ea89b;
+  background: rgba(15, 24, 21, 0.92);
+}
+
+.artifact-name {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.artifact-name small,
+.error-text,
+.log-meta {
+  color: #92a89c;
+}
+
+.status-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 7px 12px;
+  background: rgba(34, 51, 45, 0.9);
+  font-size: 0.82rem;
+  text-transform: capitalize;
+}
+
+.status-pill.subtle {
+  background: rgba(18, 30, 26, 0.9);
+}
+
+.status-pill[data-state='running'],
+.status-pill[data-state='downloading'],
+.status-pill[data-state='finalizing'] {
+  background: rgba(207, 138, 61, 0.18);
+  color: #ffd28a;
+}
+
+.status-pill[data-state='updated'],
+.status-pill[data-state='synchronized'],
+.status-pill[data-state='idle'] {
+  background: rgba(76, 167, 117, 0.18);
+  color: #abf2c2;
+}
+
+.status-pill[data-state='error'] {
+  background: rgba(184, 68, 68, 0.18);
+  color: #ffb1b1;
+}
+
+.progress-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 180px;
+}
+
+.progress-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(26, 40, 34, 0.92);
+  overflow: hidden;
+  border: 1px solid rgba(126, 160, 143, 0.12);
+}
+
+.progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #c88939, #f0c05f);
+  transition: width 180ms ease;
+}
+
+.logs {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  max-height: 360px;
+  overflow: auto;
+}
+
+.log-entry {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(16, 25, 22, 0.92);
+  border: 1px solid rgba(126, 160, 143, 0.12);
+}
+
+.log-entry p {
+  margin: 6px 0 0;
+}
+
+.empty-state {
+  color: #90a79a;
+  text-align: center;
+}
+
+@media (max-width: 960px) {
+  .shell {
+    padding: 16px;
+  }
+
+  .hero {
+    flex-direction: column;
+  }
+
+  .grid,
+  .form-grid,
+  .metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .path-picker {
+    grid-template-columns: 1fr;
+  }
+
+  .toggle-row {
+    justify-content: flex-start;
+  }
+}
+</file>
+
+<file path="src/server/remote-api.js">
+import { mkdir } from 'fs/promises'
+import { createWriteStream } from 'fs'
+import { dirname } from 'path'
+
+const DOWNLOAD_TIMEOUT_MS = Number(process.env.DUCKPULL_DOWNLOAD_TIMEOUT_MS || 15 * 60 * 1000)
+const STALL_TIMEOUT_MS = Number(process.env.DUCKPULL_STALL_TIMEOUT_MS || 30 * 1000)
+const REMOTE_TIMEOUT_MS = Number(process.env.DUCKPULL_REMOTE_TIMEOUT_MS || 20 * 1000)
+
+function normalizeBaseUrl(baseUrl) {
+  return String(baseUrl || '').trim().replace(/\/+$/, '')
+}
+
+function authHeaders(token) {
+  return token
+    ? { Authorization: `Bearer ${token}` }
+    : {}
+}
+
+function buildRemoteUrl(baseUrl, path) {
+  return `${normalizeBaseUrl(baseUrl)}${path.startsWith('/') ? path : `/${path}`}`
+}
+
+function withQuery(url, params) {
+  const nextUrl = new URL(url)
+  for (const [key, value] of Object.entries(params || {})) {
+    if (value !== undefined && value !== null && value !== '') {
+      nextUrl.searchParams.set(key, String(value))
+    }
+  }
+  return nextUrl.toString()
+}
+
+function normalizeArtifact(baseUrl, artifact) {
+  const name = String(artifact.name || artifact.filename || artifact.id || '').trim()
+  const filename = String(artifact.filename || name).split(/[\\/]/).pop()
+  const type = String(
+    artifact.type ||
+    (filename.endsWith('.parquet') ? 'parquet' : 'duckdb')
+  ).replace(/^\./, '')
+  const id = String(artifact.id || filename || name)
+  const downloadUrl = artifact.download_url
+    ? new URL(artifact.download_url, `${normalizeBaseUrl(baseUrl)}/`).toString()
+    : buildRemoteUrl(baseUrl, `/artifacts/${encodeURIComponent(id)}/download`)
+
+  return {
+    id,
+    name: name || filename,
+    filename,
+    type,
+    sizeBytes: artifact.size_bytes ?? artifact.size ?? null,
+    sha256: artifact.sha256 ?? null,
+    etag: artifact.etag ?? null,
+    updatedAt: artifact.updated_at ?? artifact.updatedAt ?? null,
+    downloadUrl
+  }
+}
+
+async function getJson(response) {
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) {
+    const detail = payload?.detail || payload?.message || response.statusText
+    throw new Error(`DuckFlow respondeu ${response.status}: ${detail}`)
+  }
+  return payload
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = REMOTE_TIMEOUT_MS) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => {
+    controller.abort(new Error(`Tempo limite de ${Math.floor(timeoutMs / 1000)}s ao acessar DuckFlow`))
+  }, timeoutMs)
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal
+    })
+  } catch (error) {
+    throw new Error(error?.cause?.message || error?.message || 'Falha ao conectar no DuckFlow')
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+export async function fetchRemoteArtifacts(settings) {
+  const url = buildRemoteUrl(settings.apiBaseUrl, '/artifacts')
+  const response = await fetchWithTimeout(url, {
+    headers: {
+      Accept: 'application/json',
+      ...authHeaders(settings.authToken)
+    }
+  })
+  const payload = await getJson(response)
+  const artifacts = Array.isArray(payload) ? payload : payload.artifacts
+  if (!Array.isArray(artifacts)) {
+    throw new Error('Resposta inválida do DuckFlow em /artifacts')
+  }
+  return artifacts.map((artifact) => normalizeArtifact(settings.apiBaseUrl, artifact))
+}
+
+export async function testRemoteConnection(settings) {
+  const artifacts = await fetchRemoteArtifacts(settings)
+  return {
+    ok: true,
+    artifactCount: artifacts.length,
+    sample: artifacts.slice(0, 5)
+  }
+}
+
+export async function fetchArtifactMeta(settings, artifact) {
+  const url = buildRemoteUrl(settings.apiBaseUrl, `/artifacts/${encodeURIComponent(artifact.id)}/meta`)
+  const response = await fetchWithTimeout(url, {
+    headers: {
+      Accept: 'application/json',
+      ...authHeaders(settings.authToken)
+    }
+  })
+  const payload = await getJson(response)
+  return normalizeArtifact(settings.apiBaseUrl, payload)
+}
+
+export async function downloadArtifact(settings, artifact, tempPath, onProgress = null) {
+  await mkdir(dirname(tempPath), { recursive: true })
+  const controller = new AbortController()
+  let overallTimer = null
+  let stallTimer = null
+  const requestUrl = withQuery(artifact.downloadUrl, {
+    expected_etag: artifact.etag || undefined
+  })
+
+  const resetStallTimer = () => {
+    if (stallTimer) {
+      clearTimeout(stallTimer)
+    }
+    stallTimer = setTimeout(() => {
+      controller.abort(new Error(`Download parado por mais de ${Math.floor(STALL_TIMEOUT_MS / 1000)}s`))
+    }, STALL_TIMEOUT_MS)
+  }
+
+  overallTimer = setTimeout(() => {
+    controller.abort(new Error(`Download excedeu o tempo limite de ${Math.floor(DOWNLOAD_TIMEOUT_MS / 1000)}s`))
+  }, DOWNLOAD_TIMEOUT_MS)
+
+  let response
+  try {
+    response = await fetch(requestUrl, {
+      headers: {
+        Accept: '*/*',
+        ...authHeaders(settings.authToken)
+      },
+      signal: controller.signal
+    })
+  } catch (error) {
+    clearTimeout(overallTimer)
+    if (stallTimer) {
+      clearTimeout(stallTimer)
+    }
+    throw new Error(error?.cause?.message || error?.message || `Falha de rede ao baixar ${artifact.name}`)
+  }
+
+  if (!response.ok || !response.body) {
+    clearTimeout(overallTimer)
+    if (stallTimer) {
+      clearTimeout(stallTimer)
+    }
+    const bodyText = await response.text().catch(() => '')
+    throw new Error(
+      `Falha no download de ${artifact.name}: ${response.status} ${bodyText || response.statusText}`
+    )
+  }
+
+  const totalBytes = Number(response.headers.get('content-length') || artifact.sizeBytes || 0) || null
+  const writer = createWriteStream(tempPath)
+  const reader = response.body.getReader()
+
+  let downloadedBytes = 0
+  try {
+    resetStallTimer()
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
+      }
+      if (value) {
+        resetStallTimer()
+        downloadedBytes += value.byteLength
+        writer.write(Buffer.from(value))
+        if (onProgress) {
+          await onProgress(downloadedBytes, totalBytes)
+        }
+      }
+    }
+  } finally {
+    clearTimeout(overallTimer)
+    if (stallTimer) {
+      clearTimeout(stallTimer)
+    }
+    await new Promise((resolve, reject) => {
+      writer.on('finish', resolve)
+      writer.on('error', reject)
+      writer.end()
+    })
+  }
+
+  if (totalBytes && downloadedBytes !== totalBytes) {
+    throw new Error(`Download incompleto de ${artifact.name}: ${downloadedBytes} de ${totalBytes} bytes`)
+  }
+
+  return {
+    downloadedBytes,
+    totalBytes,
+    etag: response.headers.get('etag') || artifact.etag || null
+  }
+}
+</file>
+
+<file path="scripts/start-windows.ps1">
+Set-StrictMode -Version Latest
+$ErrorActionPreference = "Stop"
+
+$Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$RuntimeDir = Join-Path $Root "data\runtime"
+$PidFile = Join-Path $RuntimeDir "duckpull.pid"
+$StdoutLog = Join-Path $RuntimeDir "duckpull.log"
+$StderrLog = Join-Path $RuntimeDir "duckpull-error.log"
+$HostValue = "127.0.0.1"
+$PortValue = "5767"
+$BunInstall = if ($env:BUN_INSTALL) { $env:BUN_INSTALL } else { Join-Path $HOME ".bun" }
+
+function Find-BunExecutable {
+    $bunCommand = Get-Command bun -ErrorAction SilentlyContinue
+    if ($bunCommand) {
+        return $bunCommand.Source
+    }
+
+    $candidatePaths = @(
+        (Join-Path $BunInstall "bin\bun.exe"),
+        (Join-Path $HOME ".bun\bin\bun.exe"),
+        (Join-Path $env:LOCALAPPDATA "Microsoft\WinGet\Links\bun.exe"),
+        (Join-Path $env:LOCALAPPDATA "Programs\Bun\bun.exe"),
+        (Join-Path $env:ProgramFiles "Bun\bun.exe")
+    ) | Select-Object -Unique
+
+    foreach ($candidate in $candidatePaths) {
+        if ($candidate -and (Test-Path $candidate)) {
+            $candidateDir = Split-Path -Parent $candidate
+            if ($candidateDir -and -not ($env:Path -split ';' | Where-Object { $_ -eq $candidateDir })) {
+                $env:Path = "$candidateDir;$env:Path"
+            }
+            return $candidate
+        }
+    }
+
+    return $null
+}
+
+function Ensure-Bun {
+    $resolved = Find-BunExecutable
+    if ($resolved) {
+        return $resolved
+    }
+
+    Write-Host "Bun não encontrado. Tentando instalar automaticamente..."
+
+    if (Get-Command winget -ErrorAction SilentlyContinue) {
+        winget install --id Oven-sh.Bun --exact --accept-source-agreements --accept-package-agreements | Out-Host
+    }
+    else {
+        $InstallScript = Join-Path $env:TEMP "install-bun.ps1"
+        Invoke-WebRequest -UseBasicParsing -Uri "https://bun.sh/install.ps1" -OutFile $InstallScript
+        powershell -NoProfile -ExecutionPolicy Bypass -File $InstallScript | Out-Host
+    }
+
+    $env:BUN_INSTALL = $BunInstall
+    $resolved = Find-BunExecutable
+    if ($resolved) {
+        return $resolved
+    }
+
+    throw "Falha ao instalar/configurar Bun automaticamente."
+}
+$BunExecutable = Ensure-Bun
+
+New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+
+$EnvFile = Join-Path $Root ".env"
+if (-not (Test-Path $EnvFile)) {
+    Copy-Item (Join-Path $Root ".env.example") $EnvFile
+}
+
+Get-Content $EnvFile -ErrorAction SilentlyContinue | ForEach-Object {
+    if ($_ -match '^DUCKPULL_HOST=(.+)$') {
+        $HostValue = $Matches[1].Trim()
+    }
+    elseif ($_ -match '^DUCKPULL_PORT=(.+)$') {
+        $PortValue = $Matches[1].Trim()
+    }
+}
+
+if (-not $HostValue) {
+    $HostValue = "127.0.0.1"
+}
+
+if (-not $PortValue) {
+    $PortValue = "5767"
+}
+
+$ExistingPid = $null
+if (Test-Path $PidFile) {
+    $ExistingPid = (Get-Content $PidFile -ErrorAction SilentlyContinue | Select-Object -First 1).Trim()
+    if ($ExistingPid) {
+        $ExistingProcess = Get-Process -Id ([int]$ExistingPid) -ErrorAction SilentlyContinue
+        if ($ExistingProcess) {
+            Write-Host "duckpull já está em execução (PID $ExistingPid)."
+            exit 0
+        }
+    }
+    Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
+}
+
+$FrontendDist = Join-Path $Root "dist\index.html"
+Push-Location $Root
+& $BunExecutable install
+
+if (-not (Test-Path $FrontendDist)) {
+    Write-Host "Build do frontend não encontrado. Executando build..."
+    & $BunExecutable run build
+}
+
+$Process = Start-Process -FilePath $BunExecutable -ArgumentList "start" -WorkingDirectory $Root -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog -WindowStyle Hidden -PassThru
+$Process.Id | Set-Content $PidFile
+Pop-Location
+
+Start-Sleep -Seconds 1
+if (Get-Process -Id $Process.Id -ErrorAction SilentlyContinue) {
+    Write-Host "duckpull iniciado em segundo plano (PID $($Process.Id))."
+    $LocalUrl = "http://$HostValue`:$PortValue"
+    Write-Host "URL: $LocalUrl"
+    Write-Host "Logs: $StdoutLog e $StderrLog"
+    Start-Process $LocalUrl | Out-Null
+}
+else {
+    Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
+    Write-Host "duckpull falhou ao iniciar. Verifique $StdoutLog e $StderrLog"
+    exit 1
+}
+</file>
+
+<file path="src/server/index.js">
+import { existsSync, statSync } from 'fs'
+import { extname, join } from 'path'
+import { staticPlugin } from '@elysiajs/static'
+import { Elysia, t } from 'elysia'
+import { clearSessionCookie, createSessionCookie, isAuthenticated, verifyPassword } from './auth.js'
+import { frontendDistDir, host, port } from './config.js'
+import { addLog, getArtifact, getSettings, initDb, listArtifacts, listLogs, saveSettings, updateArtifactSelection, upsertRemoteArtifacts } from './db.js'
+import { openDirectory, pickDirectory } from './folder-picker.js'
+import { fetchRemoteArtifacts, testRemoteConnection } from './remote-api.js'
+import { cleanupStaleSyncArtifacts, getSyncStatus, refreshScheduler, requestSync } from './sync-manager.js'
+
+initDb()
+await cleanupStaleSyncArtifacts()
+if (process.env.DUCKPULL_DISABLE_LISTEN !== '1') {
+  refreshScheduler()
+}
+
+export const app = new Elysia()
+  .derive(({ request, path, set }) => {
+    const publicPaths = new Set([
+      '/api/health',
+      '/api/auth/login',
+      '/api/auth/status'
+    ])
+
+    if (!path.startsWith('/api') || publicPaths.has(path)) {
+      return {}
+    }
+
+    if (!isAuthenticated(request)) {
+      set.status = 401
+      throw new Error('Unauthorized')
+    }
+
+    return {}
+  })
+  .onError(({ error, set, code }) => {
+    if (code === 'NOT_FOUND') {
+      set.status = 404
+      return { detail: 'Not Found' }
+    }
+    if (error.message === 'Unauthorized') {
+      set.status = 401
+      return { detail: 'Unauthorized' }
+    }
+    set.status = 500
+    return { detail: error.message || 'Internal Server Error' }
+  })
+  .get('/api/health', () => ({
+    ok: true,
+    service: 'duckpull',
+    time: new Date().toISOString(),
+    hasFrontendBuild: existsSync(join(frontendDistDir, 'index.html'))
+  }))
+  .get('/api/auth/status', ({ request }) => ({
+    authenticated: isAuthenticated(request)
+  }))
+  .post('/api/auth/login', async ({ body, set }) => {
+    const ok = await verifyPassword(body.password)
+    if (!ok) {
+      set.status = 401
+      return { detail: 'Senha inválida.' }
+    }
+    set.headers['set-cookie'] = createSessionCookie()
+    return { ok: true }
+  }, {
+    body: t.Object({
+      password: t.String()
+    })
+  })
+  .post('/api/auth/logout', ({ set }) => {
+    set.headers['set-cookie'] = clearSessionCookie()
+    return { ok: true }
+  })
+  .get('/api/settings', () => getSettings())
+  .put('/api/settings', async ({ body }) => {
+    const settings = saveSettings(body)
+    refreshScheduler()
+    addLog('info', 'Configurações atualizadas.')
+    return settings
+  }, {
+    body: t.Object({
+      apiBaseUrl: t.String(),
+      authToken: t.String(),
+      destinationDir: t.String(),
+      syncIntervalMinutes: t.Numeric(),
+      autoSyncEnabled: t.Boolean()
+    })
+  })
+  .post('/api/test-connection', async ({ body }) => {
+    const settings = {
+      ...getSettings(),
+      ...body
+    }
+    const result = await testRemoteConnection(settings)
+    addLog('info', `Teste de conexão concluído com sucesso (${result.artifactCount} artefato(s)).`)
+    return result
+  }, {
+    body: t.Optional(t.Object({
+      apiBaseUrl: t.Optional(t.String()),
+      authToken: t.Optional(t.String()),
+      destinationDir: t.Optional(t.String()),
+      syncIntervalMinutes: t.Optional(t.Numeric()),
+      autoSyncEnabled: t.Optional(t.Boolean())
+    }))
+  })
+  .post('/api/remote-artifacts/refresh', async ({ body }) => {
+    const settings = {
+      ...getSettings(),
+      ...body
+    }
+    const artifacts = await fetchRemoteArtifacts(settings)
+    upsertRemoteArtifacts(artifacts)
+    return { artifacts: listArtifacts() }
+  }, {
+    body: t.Optional(t.Object({
+      apiBaseUrl: t.Optional(t.String()),
+      authToken: t.Optional(t.String()),
+      destinationDir: t.Optional(t.String()),
+      syncIntervalMinutes: t.Optional(t.Numeric()),
+      autoSyncEnabled: t.Optional(t.Boolean())
+    }))
+  })
+  .post('/api/pick-directory', async ({ set }) => {
+    const directory = await pickDirectory()
+    if (!directory) {
+      set.status = 400
+      return { detail: 'Nenhuma pasta selecionada ou seletor nativo indisponível neste ambiente.' }
+    }
+    return { path: directory }
+  })
+  .post('/api/open-directory', async ({ body, set }) => {
+    const ok = await openDirectory(body.path)
+    if (!ok) {
+      set.status = 400
+      return { detail: 'Não foi possível abrir a pasta no explorador do sistema.' }
+    }
+    return { ok: true }
+  }, {
+    body: t.Object({
+      path: t.String()
+    })
+  })
+  .get('/api/remote-artifacts', async () => {
+    const settings = getSettings()
+    const artifacts = await fetchRemoteArtifacts(settings)
+    upsertRemoteArtifacts(artifacts)
+    return { artifacts: listArtifacts() }
+  })
+  .put('/api/artifacts/:id', ({ params, body, set }) => {
+    const artifact = getArtifact(params.id)
+    if (!artifact) {
+      set.status = 404
+      return { detail: 'Artefato não encontrado.' }
+    }
+    updateArtifactSelection(params.id, body.selected)
+    return { ok: true }
+  }, {
+    body: t.Object({
+      selected: t.Boolean()
+    })
+  })
+  .post('/api/sync', async ({ body }) => {
+    const settingsOverride = body ? {
+      apiBaseUrl: body.apiBaseUrl,
+      authToken: body.authToken,
+      destinationDir: body.destinationDir,
+      syncIntervalMinutes: body.syncIntervalMinutes,
+      autoSyncEnabled: body.autoSyncEnabled
+    } : null
+    return await requestSync({
+      reason: body?.reason || 'manual',
+      force: body?.force,
+      settingsOverride,
+      artifactIds: body?.artifactIds
+    })
+  }, {
+    body: t.Optional(t.Object({
+      reason: t.Optional(t.String()),
+      force: t.Optional(t.Boolean()),
+      artifactIds: t.Optional(t.Array(t.String())),
+      apiBaseUrl: t.Optional(t.String()),
+      authToken: t.Optional(t.String()),
+      destinationDir: t.Optional(t.String()),
+      syncIntervalMinutes: t.Optional(t.Numeric()),
+      autoSyncEnabled: t.Optional(t.Boolean())
+    }))
+  })
+  .get('/api/sync/status', () => getSyncStatus())
+  .get('/api/logs', ({ query }) => {
+    const limit = Math.min(Number(query.limit || 200), 500)
+    return {
+      logs: listLogs(limit)
+    }
+  }, {
+    query: t.Object({
+      limit: t.Optional(t.String())
+    })
+  })
+
+if (existsSync(join(frontendDistDir, 'index.html'))) {
+  app
+    .use(staticPlugin({
+      assets: frontendDistDir,
+      prefix: '/'
+    }))
+    .get('/', () => Bun.file(join(frontendDistDir, 'index.html')))
+    .get('/*', ({ path, set }) => {
+      if (path.startsWith('/api')) {
+        set.status = 404
+        return { detail: 'API route not found' }
+      }
+
+      const normalizedPath = path.startsWith('/') ? path.slice(1) : path
+      const staticFilePath = join(frontendDistDir, normalizedPath)
+      if (normalizedPath && existsSync(staticFilePath) && statSync(staticFilePath).isFile()) {
+        return Bun.file(staticFilePath)
+      }
+
+      if (extname(normalizedPath)) {
+        set.status = 404
+        return { detail: 'Static asset not found' }
+      }
+
+      return Bun.file(join(frontendDistDir, 'index.html'))
+    })
+}
+
+if (process.env.DUCKPULL_DISABLE_LISTEN !== '1') {
+  app.listen({ hostname: host, port })
+  console.log(`[duckpull] Rodando em http://${host}:${port}`)
+}
+</file>
+
+<file path="src/client/App.vue">
+<script setup>
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+
+const auth = reactive({
+  checking: true,
+  authenticated: false,
+  password: '',
+  loggingIn: false,
+  loggingOut: false
+})
+
+const settings = reactive({
+  apiBaseUrl: '',
+  authToken: '',
+  destinationDir: '',
+  syncIntervalMinutes: 15,
+  autoSyncEnabled: true
+})
+
+const artifacts = ref([])
+const logs = ref([])
+const runtime = ref({
+  running: false,
+  queued: false,
+  currentArtifactId: null,
+  startedAt: null,
+  finishedAt: null,
+  lastSummary: null
+})
+const message = ref('')
+const messageKind = ref('info')
+const busy = reactive({
+  saving: false,
+  testing: false,
+  pickingDir: false,
+  openingDir: false,
+  loadingArtifacts: false,
+  syncing: false
+})
+
+let pollHandle = null
+
+const selectedCount = computed(() => artifacts.value.filter((artifact) => artifact.selected).length)
+
+function currentSettingsPayload() {
+  return {
+    apiBaseUrl: settings.apiBaseUrl,
+    authToken: settings.authToken,
+    destinationDir: settings.destinationDir,
+    syncIntervalMinutes: settings.syncIntervalMinutes,
+    autoSyncEnabled: settings.autoSyncEnabled
+  }
+}
+
+function setMessage(text, kind = 'info') {
+  message.value = text
+  messageKind.value = kind
+}
+
+async function api(path, options = {}) {
+  const controller = new AbortController()
+  const timeoutMs = options.timeoutMs ?? 15000
+  const timer = window.setTimeout(() => {
+    controller.abort()
+  }, timeoutMs)
+
+  let response
+  try {
+    response = await fetch(path, {
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {})
+      },
+      ...options,
+      signal: controller.signal
+    })
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error(`Operação excedeu ${Math.floor(timeoutMs / 1000)}s.`)
+    }
+    throw error
+  } finally {
+    window.clearTimeout(timer)
+  }
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}))
+    const error = new Error(payload.detail || payload.message || `Erro ${response.status}`)
+    error.status = response.status
+    throw error
+  }
+
+  if (response.status === 204) {
+    return null
+  }
+
+  return await response.json()
+}
+
+async function loadAuthStatus() {
+  const payload = await api('/api/auth/status', { timeoutMs: 8000 })
+  auth.authenticated = Boolean(payload.authenticated)
+  auth.checking = false
+}
+
+function applySettings(payload) {
+  settings.apiBaseUrl = payload.apiBaseUrl || ''
+  settings.authToken = payload.authToken || ''
+  settings.destinationDir = payload.destinationDir || ''
+  settings.syncIntervalMinutes = payload.syncIntervalMinutes || 15
+  settings.autoSyncEnabled = Boolean(payload.autoSyncEnabled)
+}
+
+async function loadSettings() {
+  const payload = await api('/api/settings', { timeoutMs: 10000 })
+  applySettings(payload)
+}
+
+async function loadStatus() {
+  const payload = await api('/api/sync/status', { timeoutMs: 10000 })
+  runtime.value = payload.runtime
+  artifacts.value = payload.artifacts
+  logs.value = payload.logs
+}
+
+async function saveSettings() {
+  busy.saving = true
+  try {
+    const payload = await api('/api/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+      timeoutMs: 15000
+    })
+    applySettings(payload)
+    setMessage('Configurações salvas.', 'success')
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    busy.saving = false
+  }
+}
+
+async function testConnection() {
+  busy.testing = true
+  try {
+    const payload = await api('/api/test-connection', {
+      method: 'POST',
+      body: JSON.stringify(settings),
+      timeoutMs: 20000
+    })
+    setMessage(`Conexão OK. ${payload.artifactCount} artefato(s) encontrado(s).`, 'success')
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    busy.testing = false
+  }
+}
+
+async function refreshArtifacts() {
+  busy.loadingArtifacts = true
+  try {
+    const payload = await api('/api/remote-artifacts/refresh', {
+      method: 'POST',
+      body: JSON.stringify(currentSettingsPayload()),
+      timeoutMs: 20000
+    })
+    artifacts.value = payload.artifacts
+    setMessage('Lista de artefatos atualizada.', 'success')
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    busy.loadingArtifacts = false
+  }
+}
+
+async function browseDestinationDir() {
+  busy.pickingDir = true
+  try {
+    const payload = await api('/api/pick-directory', {
+      method: 'POST',
+      body: JSON.stringify({}),
+      timeoutMs: 120000
+    })
+    if (payload?.path) {
+      settings.destinationDir = payload.path
+      setMessage('Pasta de destino selecionada.', 'success')
+    }
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    busy.pickingDir = false
+  }
+}
+
+async function openCurrentDestinationDir() {
+  if (!settings.destinationDir) {
+    setMessage('Informe uma pasta de destino primeiro.', 'info')
+    return
+  }
+
+  busy.openingDir = true
+  try {
+    await api('/api/open-directory', {
+      method: 'POST',
+      body: JSON.stringify({ path: settings.destinationDir }),
+      timeoutMs: 15000
+    })
+    setMessage('Pasta aberta no explorador do sistema.', 'success')
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    busy.openingDir = false
+  }
+}
+
+async function login() {
+  auth.loggingIn = true
+  try {
+    await api('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ password: auth.password }),
+      timeoutMs: 10000
+    })
+    auth.password = ''
+    auth.authenticated = true
+    setMessage('Acesso liberado.', 'success')
+    await loadSettings()
+    await loadStatus()
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    auth.loggingIn = false
+  }
+}
+
+async function logout() {
+  auth.loggingOut = true
+  try {
+    await api('/api/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({}),
+      timeoutMs: 10000
+    })
+  } finally {
+    auth.authenticated = false
+    auth.loggingOut = false
+  }
+}
+
+async function updateSelection(artifact) {
+  try {
+    await api(`/api/artifacts/${encodeURIComponent(artifact.id)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ selected: artifact.selected }),
+      timeoutMs: 10000
+    })
+  } catch (error) {
+    artifact.selected = !artifact.selected
+    setMessage(error.message, 'error')
+  }
+}
+
+async function triggerSync(force = false) {
+  if (!selectedCount.value) {
+    setMessage('Selecione pelo menos um artefato antes de sincronizar.', 'info')
+    return
+  }
+
+  busy.syncing = true
+  try {
+    const payload = await api('/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        reason: 'manual',
+        force,
+        ...currentSettingsPayload()
+      }),
+      timeoutMs: 20000
+    })
+    if (payload.queued) {
+      setMessage('Sincronização enfileirada.', 'info')
+    } else {
+      setMessage('Sincronização iniciada.', 'success')
+    }
+    await loadStatus()
+  } catch (error) {
+    setMessage(error.message, 'error')
+  } finally {
+    busy.syncing = false
+  }
+}
+
+function formatTime(value) {
+  if (!value) {
+    return 'n/a'
+  }
+  return new Date(value).toLocaleString('pt-BR')
+}
+
+function formatSize(value) {
+  if (!value && value !== 0) {
+    return 'n/a'
+  }
+  const units = ['B', 'KB', 'MB', 'GB', 'TB']
+  let size = Number(value)
+  let unitIndex = 0
+  while (size >= 1024 && unitIndex < units.length - 1) {
+    size /= 1024
+    unitIndex += 1
+  }
+  return `${size.toFixed(size >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`
+}
+
+function formatDuration(value) {
+  if (!value && value !== 0) {
+    return 'n/a'
+  }
+  const totalMs = Number(value)
+  const totalSeconds = Math.floor(totalMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`
+  }
+  return `${seconds}s`
+}
+
+function formatStatusLabel(status) {
+  if (status === 'finalizing') {
+    return 'Finalizing'
+  }
+  return String(status || '')
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
+
+async function boot() {
+  try {
+    await loadAuthStatus()
+    if (auth.authenticated) {
+      await loadSettings()
+      await loadStatus()
+    }
+  } catch (error) {
+    setMessage(error.message, 'error')
+    auth.checking = false
+  }
+
+  pollHandle = window.setInterval(() => {
+    if (auth.authenticated) {
+      loadStatus().catch((error) => {
+        if (error.status === 401) {
+          auth.authenticated = false
+        }
+      })
+    }
+  }, 5000)
+}
+
+onMounted(boot)
+onUnmounted(() => {
+  if (pollHandle) {
+    clearInterval(pollHandle)
+  }
+})
+</script>
+
+<template>
+  <div class="shell">
+    <div v-if="auth.checking" class="auth-shell">
+      <section class="auth-card">
+        <h2>duckpull</h2>
+        <p>Verificando acesso local...</p>
+      </section>
+    </div>
+
+    <div v-else-if="!auth.authenticated" class="auth-shell">
+      <section class="auth-card">
+        <p class="eyebrow">Acesso Local</p>
+        <h2>Entrar no duckpull</h2>
+        <p class="lead compact">Informe a senha local para acessar a interface.</p>
+        <label class="auth-field">
+          <span>Senha</span>
+          <input v-model="auth.password" type="password" placeholder="Senha de acesso" @keyup.enter="login" />
+        </label>
+        <button class="primary auth-button" :disabled="auth.loggingIn || !auth.password" @click="login">
+          {{ auth.loggingIn ? 'Entrando...' : 'Entrar' }}
+        </button>
+        <p v-if="message" class="message" :data-kind="messageKind">{{ message }}</p>
+      </section>
+    </div>
+
+    <template v-else>
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Local Artifact Pull Client</p>
+        <h1>duckpull</h1>
+        <p class="lead">
+          Cliente leve para puxar snapshots `.duckdb` e `.parquet` do DuckFlow sem depender de SMB.
+        </p>
+      </div>
+      <div class="hero-status">
+        <span class="status-pill" :data-state="runtime.running ? 'running' : 'idle'">
+          {{ runtime.running ? 'Sincronizando' : 'Ocioso' }}
+        </span>
+        <span class="status-pill subtle">
+          {{ selectedCount }} selecionado(s)
+        </span>
+        <button class="ghost-button" :disabled="auth.loggingOut" @click="logout">
+          {{ auth.loggingOut ? 'Saindo...' : 'Sair' }}
+        </button>
+      </div>
+    </header>
+
+    <main class="grid">
+      <section class="panel config-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Configuração</h2>
+            <p>Defina a origem remota, autenticação, pasta local e intervalo automático.</p>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            <span>API base URL</span>
+            <input v-model="settings.apiBaseUrl" placeholder="https://duckflow.exemplo.com/api" />
+          </label>
+
+          <label>
+            <span>Token Bearer</span>
+            <input v-model="settings.authToken" type="password" placeholder="token" />
+          </label>
+
+          <label class="wide">
+            <span>Pasta de destino</span>
+            <div class="path-picker">
+              <input v-model="settings.destinationDir" placeholder="/dados/duckpull" />
+              <button type="button" :disabled="busy.pickingDir" @click="browseDestinationDir">
+                {{ busy.pickingDir ? 'Abrindo...' : 'Escolher...' }}
+              </button>
+              <button type="button" :disabled="busy.openingDir || !settings.destinationDir" @click="openCurrentDestinationDir">
+                {{ busy.openingDir ? 'Abrindo pasta...' : 'Abrir pasta' }}
+              </button>
+            </div>
+          </label>
+
+          <label>
+            <span>Intervalo (min)</span>
+            <input v-model.number="settings.syncIntervalMinutes" type="number" min="1" />
+          </label>
+
+          <label class="toggle-row">
+            <span>Sincronização automática</span>
+            <input v-model="settings.autoSyncEnabled" type="checkbox" />
+          </label>
+        </div>
+
+        <div class="actions">
+          <button class="primary" :disabled="busy.saving" @click="saveSettings">
+            {{ busy.saving ? 'Salvando...' : 'Salvar Configurações' }}
+          </button>
+          <button :disabled="busy.testing" @click="testConnection">
+            {{ busy.testing ? 'Testando...' : 'Testar Conexão' }}
+          </button>
+          <button :disabled="busy.loadingArtifacts" @click="refreshArtifacts">
+            {{ busy.loadingArtifacts ? 'Consultando...' : 'Atualizar Artefatos' }}
+          </button>
+          <button class="accent" :disabled="busy.syncing || runtime.running" @click="triggerSync(false)">
+            {{ runtime.running ? 'Sincronização em andamento' : 'Sincronizar Agora' }}
+          </button>
+        </div>
+
+        <p v-if="message" class="message" :data-kind="messageKind">{{ message }}</p>
+      </section>
+
+      <section class="panel state-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Execução</h2>
+            <p>Status geral do pull local.</p>
+          </div>
+        </div>
+
+        <div class="metrics">
+          <article>
+            <span>Último início</span>
+            <strong>{{ formatTime(runtime.startedAt) }}</strong>
+          </article>
+          <article>
+            <span>Último fim</span>
+            <strong>{{ formatTime(runtime.finishedAt) }}</strong>
+          </article>
+          <article>
+            <span>Artefato atual</span>
+            <strong>{{ runtime.currentArtifactId || 'n/a' }}</strong>
+          </article>
+          <article>
+            <span>Resumo</span>
+            <strong v-if="runtime.lastSummary">
+              {{ runtime.lastSummary.updated }} atualizados / {{ runtime.lastSummary.errors }} erros
+            </strong>
+            <strong v-else>n/a</strong>
+          </article>
+          <article>
+            <span>Duração último sync</span>
+            <strong>{{ formatDuration(runtime.lastSummary?.durationMs) }}</strong>
+          </article>
+        </div>
+      </section>
+
+      <section class="panel artifacts-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Artefatos remotos</h2>
+            <p>Selecione o que deve ser mantido localmente sincronizado.</p>
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sync</th>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Tamanho</th>
+                <th>Status</th>
+                <th>Último sync</th>
+                <th>Arquivo local</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="artifact in artifacts" :key="artifact.id">
+                <td>
+                  <input v-model="artifact.selected" type="checkbox" @change="updateSelection(artifact)" />
+                </td>
+                <td>
+                  <div class="artifact-name">
+                    <strong>{{ artifact.name }}</strong>
+                    <small>{{ artifact.filename }}</small>
+                  </div>
+                </td>
+                <td>{{ artifact.type }}</td>
+                <td>{{ formatSize(artifact.sizeBytes) }}</td>
+                <td>
+                  <div class="status-stack">
+                    <span class="status-pill" :data-state="artifact.status">{{ formatStatusLabel(artifact.status) }}</span>
+                    <div v-if="artifact.status === 'downloading' || artifact.status === 'finalizing'" class="progress-wrap">
+                      <div class="progress-bar">
+                        <div class="progress-fill" :style="{ width: `${Math.round(artifact.downloadProgress || 0)}%` }"></div>
+                      </div>
+                      <small>
+                        <template v-if="artifact.status === 'finalizing'">
+                          Validando integridade e concluindo troca segura
+                        </template>
+                        <template v-else>
+                          {{ Math.round(artifact.downloadProgress || 0) }}%
+                        </template>
+                        <template v-if="artifact.downloadedBytes || artifact.totalBytes">
+                          · {{ formatSize(artifact.downloadedBytes || 0) }}
+                          <span v-if="artifact.totalBytes"> / {{ formatSize(artifact.totalBytes) }}</span>
+                        </template>
+                      </small>
+                    </div>
+                    <small v-if="artifact.lastError" class="error-text">{{ artifact.lastError }}</small>
+                  </div>
+                </td>
+                <td>{{ formatTime(artifact.lastSyncedAt) }}</td>
+                <td>{{ artifact.localPath || 'n/a' }}</td>
+              </tr>
+              <tr v-if="!artifacts.length">
+                <td colspan="7" class="empty-state">Nenhum artefato carregado ainda.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel logs-panel">
+        <div class="panel-head">
+          <div>
+            <h2>Logs</h2>
+            <p>Eventos recentes de conexão, download e atualização.</p>
+          </div>
+        </div>
+
+        <div class="logs">
+          <article v-for="log in logs" :key="log.id" class="log-entry">
+            <span class="log-meta">{{ formatTime(log.createdAt) }} · {{ log.level }}</span>
+            <p>{{ log.message }}</p>
+          </article>
+          <p v-if="!logs.length" class="empty-state">Sem eventos ainda.</p>
+        </div>
+      </section>
+    </main>
+    </template>
+  </div>
+</template>
+</file>
+
+<file path="src/server/sync-manager.js">
+import { createHash } from 'crypto'
+import { createReadStream } from 'fs'
+import { chmod, mkdir, readdir, rename, rm, stat } from 'fs/promises'
+import { join } from 'path'
+import { addLog, getArtifactSyncState, getArtifactsForSync, getSettings, listArtifacts, listInProgressArtifactStates, listLogs, upsertArtifactSyncState, upsertRemoteArtifacts } from './db.js'
+import { downloadArtifact, fetchArtifactMeta, fetchRemoteArtifacts } from './remote-api.js'
+
+const runtimeState = {
+  running: false,
+  queued: false,
+  currentArtifactId: null,
+  reason: null,
+  startedAt: null,
+  finishedAt: null,
+  lastSummary: null
+}
+
+let intervalHandle = null
+let queuedSyncRequest = null
+const RETRY_COUNT = Math.max(1, Number(process.env.DUCKPULL_RETRY_COUNT || 3))
+const RETRY_BACKOFF_MS = Math.max(250, Number(process.env.DUCKPULL_RETRY_BACKOFF_MS || 2000))
+const ARTIFACT_SYNC_TIMEOUT_MS = Math.max(
+  60 * 1000,
+  Number(process.env.DUCKPULL_ARTIFACT_SYNC_TIMEOUT_MS || 30 * 60 * 1000)
+)
+
+function nowIso() {
+  return new Date().toISOString()
+}
+
+function validateSettings(settings) {
+  if (!settings.apiBaseUrl) {
+    throw new Error('API base URL não configurada.')
+  }
+  if (!settings.authToken) {
+    throw new Error('Token Bearer não configurado.')
+  }
+  if (!settings.destinationDir) {
+    throw new Error('Pasta de destino não configurada.')
+  }
+}
+
+function resolveSettings(override = null) {
+  const persisted = getSettings()
+  const merged = {
+    ...persisted,
+    ...(override || {})
+  }
+  validateSettings(merged)
+  return merged
+}
+
+function sanitizeFilename(filename) {
+  return String(filename || '')
+    .trim()
+    .replace(/[\\/]+/g, '_')
+    .replace(/^\.+/, '')
+}
+
+function artifactStatus(status) {
+  return status || 'never_synced'
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function withTimeout(task, ms, message) {
+  let timer = null
+  try {
+    return await Promise.race([
+      task(),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms)
+      })
+    ])
+  } finally {
+    if (timer) {
+      clearTimeout(timer)
+    }
+  }
+}
+
+async function sha256File(filePath) {
+  return await new Promise((resolve, reject) => {
+    const hash = createHash('sha256')
+    const stream = createReadStream(filePath)
+    stream.on('data', (chunk) => hash.update(chunk))
+    stream.on('error', reject)
+    stream.on('end', () => resolve(hash.digest('hex')))
+  })
+}
+
+async function setFileWritable(filePath) {
+  try {
+    if (process.platform === 'win32') {
+      Bun.spawnSync(['attrib', '-R', filePath], {
+        stdout: 'ignore',
+        stderr: 'ignore'
+      })
+      return
+    }
+    await chmod(filePath, 0o644)
+  } catch {
+    // ignore best-effort permission change
+  }
+}
+
+async function setFileReadOnly(filePath) {
+  try {
+    if (process.platform === 'win32') {
+      Bun.spawnSync(['attrib', '+R', filePath], {
+        stdout: 'ignore',
+        stderr: 'ignore'
+      })
+      return
+    }
+    await chmod(filePath, 0o444)
+  } catch {
+    // ignore best-effort permission change
+  }
+}
+
+async function replaceFileWithRollback(tempPath, finalPath) {
+  const backupPath = `${finalPath}.bak`
+  await rm(backupPath, { force: true }).catch(() => {})
+  await setFileWritable(finalPath)
+
+  try {
+    await rename(tempPath, finalPath)
+    await setFileReadOnly(finalPath)
+    return
+  } catch {
+    // Windows typically fails when destination already exists.
+  }
+
+  let movedOriginal = false
+  try {
+    await rename(finalPath, backupPath)
+    movedOriginal = true
+  } catch {
+    movedOriginal = false
+  }
+
+  try {
+    await rename(tempPath, finalPath)
+    await setFileReadOnly(finalPath)
+    if (movedOriginal) {
+      await rm(backupPath, { force: true }).catch(() => {})
+    }
+  } catch (error) {
+    if (movedOriginal) {
+      await rename(backupPath, finalPath).catch(() => {})
+      await setFileReadOnly(finalPath)
+    }
+    throw error
+  }
+}
+
+async function cleanupDirectoryTemps(dirPath) {
+  try {
+    const entries = await readdir(dirPath, { withFileTypes: true })
+    let removed = 0
+    for (const entry of entries) {
+      if (!entry.isFile()) {
+        continue
+      }
+      if (!entry.name.endsWith('.tmp') && !entry.name.endsWith('.bak')) {
+        continue
+      }
+      await rm(join(dirPath, entry.name), { force: true }).catch(() => {})
+      removed += 1
+    }
+    return removed
+  } catch {
+    return 0
+  }
+}
+
+async function cleanupArtifactTemps(finalPath) {
+  await rm(`${finalPath}.tmp`, { force: true }).catch(() => {})
+  await rm(`${finalPath}.bak`, { force: true }).catch(() => {})
+}
+
+function needsDownload(artifact, state, localExists) {
+  if (!localExists) {
+    return true
+  }
+  if (!state?.lastSyncedAt) {
+    return true
+  }
+  if (artifact.sha256 && artifact.sha256 !== state.remoteSha256) {
+    return true
+  }
+  if (artifact.etag && artifact.etag !== state.remoteEtag) {
+    return true
+  }
+  if (artifact.updatedAt && artifact.updatedAt !== state.remoteUpdatedAt) {
+    return true
+  }
+  return false
+}
+
+async function syncArtifact(settings, artifact, force = false) {
+  const startedAtMs = Date.now()
+  const liveArtifact = await fetchArtifactMeta(settings, artifact)
+  const safeFilename = sanitizeFilename(artifact.filename || `${artifact.name}.${artifact.type}`)
+  const finalPath = join(settings.destinationDir, safeFilename)
+  const tempPath = `${finalPath}.tmp`
+  const state = getArtifactSyncState(artifact.id)
+  let lastProgressPersistAt = 0
+  await cleanupArtifactTemps(finalPath)
+
+  let localExists = true
+  let localStat = null
+  try {
+    localStat = await stat(finalPath)
+  } catch {
+    localExists = false
+  }
+
+  if (!force && !needsDownload(liveArtifact, state, localExists)) {
+    if (localExists) {
+      await setFileReadOnly(finalPath)
+    }
+    upsertArtifactSyncState(artifact.id, {
+      status: 'synchronized',
+      localPath: finalPath,
+      localSizeBytes: localStat?.size ?? state?.localSizeBytes ?? null,
+      lastCheckedAt: nowIso(),
+      lastSyncedAt: state?.lastSyncedAt ?? null,
+      lastError: null,
+      downloadedBytes: state?.downloadedBytes ?? null,
+      totalBytes: state?.totalBytes ?? liveArtifact.sizeBytes ?? null,
+      downloadProgress: 100,
+      lastSyncDurationMs: state?.lastSyncDurationMs ?? null,
+      remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+      remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+      remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+    })
+    return { downloaded: false }
+  }
+
+  addLog('info', `Baixando ${liveArtifact.name}`, artifact.id)
+  upsertArtifactSyncState(artifact.id, {
+    status: 'downloading',
+    localPath: finalPath,
+    lastCheckedAt: nowIso(),
+    lastError: null,
+    downloadedBytes: 0,
+    totalBytes: liveArtifact.sizeBytes ?? null,
+    downloadProgress: 0,
+    lastSyncDurationMs: null,
+    remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+    remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+    remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+  })
+
+  const downloadResult = await downloadArtifact(settings, liveArtifact, tempPath, async (downloadedBytes, totalBytes) => {
+    const now = Date.now()
+    if (now - lastProgressPersistAt < 250 && totalBytes && downloadedBytes < totalBytes) {
+      return
+    }
+    lastProgressPersistAt = now
+    upsertArtifactSyncState(artifact.id, {
+      status: 'downloading',
+      localPath: finalPath,
+      lastCheckedAt: nowIso(),
+      lastError: null,
+      downloadedBytes,
+      totalBytes,
+      downloadProgress: totalBytes ? Math.min(100, (downloadedBytes / totalBytes) * 100) : null,
+      lastSyncDurationMs: null,
+      remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+      remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+      remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+    })
+  })
+
+  upsertArtifactSyncState(artifact.id, {
+    status: 'finalizing',
+    localPath: finalPath,
+    lastCheckedAt: nowIso(),
+    lastError: null,
+    downloadedBytes: downloadResult.downloadedBytes ?? liveArtifact.sizeBytes ?? null,
+    totalBytes: downloadResult.totalBytes ?? liveArtifact.sizeBytes ?? null,
+    downloadProgress: 100,
+    lastSyncDurationMs: null,
+    remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+    remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+    remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+  })
+  addLog('info', `Download concluído, validando ${liveArtifact.name}`, artifact.id)
+
+  if (liveArtifact.sha256) {
+    const fileHash = await sha256File(tempPath)
+    if (fileHash !== liveArtifact.sha256) {
+      await rm(tempPath, { force: true }).catch(() => {})
+      throw new Error(`Checksum inválido para ${liveArtifact.name}`)
+    }
+  }
+
+  await replaceFileWithRollback(tempPath, finalPath)
+  const finalStat = await stat(finalPath)
+
+  if (liveArtifact.sizeBytes && finalStat.size !== liveArtifact.sizeBytes) {
+    throw new Error(`Arquivo final inconsistente para ${liveArtifact.name}: esperado ${liveArtifact.sizeBytes}, obtido ${finalStat.size}`)
+  }
+
+  upsertArtifactSyncState(artifact.id, {
+    status: 'updated',
+    localPath: finalPath,
+    localSizeBytes: finalStat.size,
+    lastCheckedAt: nowIso(),
+    lastSyncedAt: nowIso(),
+    lastError: null,
+    downloadedBytes: finalStat.size,
+    totalBytes: finalStat.size,
+    downloadProgress: 100,
+    lastSyncDurationMs: Date.now() - startedAtMs,
+    remoteSha256: liveArtifact.sha256 ?? state?.remoteSha256 ?? null,
+    remoteEtag: liveArtifact.etag ?? state?.remoteEtag ?? null,
+    remoteUpdatedAt: liveArtifact.updatedAt ?? state?.remoteUpdatedAt ?? null
+  })
+  addLog('info', `Artefato atualizado: ${liveArtifact.name}`, artifact.id)
+  return { downloaded: true }
+}
+
+async function syncArtifactWithRetry(settings, artifact, force = false) {
+  let lastError = null
+  for (let attempt = 1; attempt <= RETRY_COUNT; attempt += 1) {
+    try {
+      if (attempt > 1) {
+        addLog('warn', `Nova tentativa ${attempt}/${RETRY_COUNT} para ${artifact.name}`, artifact.id)
+      }
+      return await withTimeout(
+        () => syncArtifact(settings, artifact, force),
+        ARTIFACT_SYNC_TIMEOUT_MS,
+        `Sincronização de ${artifact.name} excedeu ${Math.floor(ARTIFACT_SYNC_TIMEOUT_MS / 1000)}s`
+      )
+    } catch (error) {
+      lastError = error
+      await cleanupArtifactTemps(join(settings.destinationDir, sanitizeFilename(artifact.filename || `${artifact.name}.${artifact.type}`)))
+      if (attempt >= RETRY_COUNT) {
+        break
+      }
+      await sleep(RETRY_BACKOFF_MS * attempt)
+    }
+  }
+  throw lastError
+}
+
+async function runSyncPass(options) {
+  const settings = resolveSettings(options.settingsOverride)
+
+  await mkdir(settings.destinationDir, { recursive: true })
+  const removedTemps = await cleanupDirectoryTemps(settings.destinationDir)
+  if (removedTemps > 0) {
+    addLog('info', `Limpeza preventiva removeu ${removedTemps} arquivo(s) temporário(s).`)
+  }
+
+  const remoteArtifacts = await fetchRemoteArtifacts(settings)
+  upsertRemoteArtifacts(remoteArtifacts)
+
+  const artifacts = getArtifactsForSync(options.artifactIds)
+  if (!artifacts.length) {
+    addLog('warn', 'Nenhum artefato selecionado para sincronizar.')
+    return {
+      total: 0,
+      updated: 0,
+      errors: 0
+    }
+  }
+
+  let updated = 0
+  let errors = 0
+
+  for (const artifact of artifacts) {
+    runtimeState.currentArtifactId = artifact.id
+    try {
+      const result = await syncArtifactWithRetry(settings, artifact, options.force)
+      if (result.downloaded) {
+        updated += 1
+      }
+    } catch (error) {
+      errors += 1
+      addLog('error', `Falha ao sincronizar ${artifact.name}: ${error.message}`, artifact.id)
+      upsertArtifactSyncState(artifact.id, {
+        status: 'error',
+        localPath: join(settings.destinationDir, sanitizeFilename(artifact.filename)),
+        lastCheckedAt: nowIso(),
+        lastError: error.message,
+        downloadedBytes: null,
+        totalBytes: artifact.sizeBytes ?? null,
+        downloadProgress: null,
+        lastSyncDurationMs: null,
+        remoteSha256: artifact.sha256 ?? null,
+        remoteEtag: artifact.etag ?? null,
+        remoteUpdatedAt: artifact.updatedAt ?? null
+      })
+    }
+  }
+
+  return {
+    total: artifacts.length,
+    updated,
+    errors
+  }
+}
+
+async function runSyncLoop(options) {
+  let nextOptions = options
+  do {
+    runtimeState.running = true
+    runtimeState.queued = false
+    runtimeState.reason = nextOptions.reason
+    runtimeState.startedAt = nowIso()
+    runtimeState.finishedAt = null
+    runtimeState.lastSummary = null
+    addLog('info', `Sincronização iniciada (${nextOptions.reason})`)
+    const runStartedAtMs = Date.now()
+
+    queuedSyncRequest = null
+    try {
+      const summary = await runSyncPass(nextOptions)
+      runtimeState.lastSummary = {
+        ...summary,
+        durationMs: Date.now() - runStartedAtMs
+      }
+      addLog('info', `Sincronização concluída: ${summary.updated} atualizado(s), ${summary.errors} erro(s).`)
+    } catch (error) {
+      runtimeState.lastSummary = { total: 0, updated: 0, errors: 1, durationMs: Date.now() - runStartedAtMs }
+      addLog('error', `Sincronização falhou: ${error.message}`)
+    } finally {
+      runtimeState.running = false
+      runtimeState.currentArtifactId = null
+      runtimeState.finishedAt = nowIso()
+    }
+
+    nextOptions = queuedSyncRequest
+  } while (nextOptions)
+
+  runtimeState.queued = false
+}
+
+export async function requestSync(options = {}) {
+  resolveSettings(options.settingsOverride)
+
+  const normalized = {
+    reason: options.reason || 'manual',
+    force: Boolean(options.force),
+    settingsOverride: options.settingsOverride || null,
+    artifactIds: Array.isArray(options.artifactIds) && options.artifactIds.length
+      ? [...new Set(options.artifactIds.map(String))]
+      : null
+  }
+
+  if (runtimeState.running) {
+    queuedSyncRequest = normalized
+    runtimeState.queued = true
+    addLog('info', 'Sincronização já em andamento; nova execução enfileirada.')
+    return { started: false, queued: true }
+  }
+
+  void runSyncLoop(normalized)
+  return { started: true, queued: false }
+}
+
+export function refreshScheduler() {
+  if (intervalHandle) {
+    clearInterval(intervalHandle)
+    intervalHandle = null
+  }
+
+  const settings = getSettings()
+  if (!settings.autoSyncEnabled) {
+    addLog('info', 'Sincronização automática desativada.')
+    return
+  }
+
+  const intervalMs = Math.max(1, Number(settings.syncIntervalMinutes || 15)) * 60 * 1000
+  intervalHandle = setInterval(() => {
+    void requestSync({ reason: 'interval' })
+  }, intervalMs)
+  addLog('info', `Sincronização automática agendada a cada ${settings.syncIntervalMinutes} minuto(s).`)
+}
+
+export async function cleanupStaleSyncArtifacts() {
+  const settings = getSettings()
+  const stuckArtifacts = listInProgressArtifactStates()
+  for (const state of stuckArtifacts) {
+    if (state.localPath) {
+      await cleanupArtifactTemps(state.localPath)
+    }
+    upsertArtifactSyncState(state.artifactId, {
+      ...state,
+      status: 'error',
+      lastCheckedAt: nowIso(),
+      lastError: 'Sincronização anterior interrompida. O artefato foi liberado para nova tentativa.'
+    })
+  }
+  if (stuckArtifacts.length > 0) {
+    addLog('warn', `${stuckArtifacts.length} sincronização(ões) interrompida(s) foram recuperadas no startup.`)
+  }
+  if (!settings.destinationDir) {
+    return
+  }
+  const removedTemps = await cleanupDirectoryTemps(settings.destinationDir)
+  if (removedTemps > 0) {
+    addLog('info', `Inicialização removeu ${removedTemps} arquivo(s) temporário(s) órfão(s).`)
+  }
+}
+
+export function getSyncStatus() {
+  return {
+    runtime: {
+      ...runtimeState,
+      currentArtifactId: runtimeState.currentArtifactId,
+      currentArtifactStatus: runtimeState.currentArtifactId
+        ? artifactStatus(getArtifactSyncState(runtimeState.currentArtifactId)?.status)
+        : null
+    },
+    artifacts: listArtifacts(),
+    logs: listLogs(50)
+  }
+}
+</file>
+
+<file path="README.md">
+# duckpull
+
+`duckpull` é o cliente leve do ecossistema Duck. Ele roda sem Docker, expõe uma interface web local e sincroniza artefatos `.duckdb` e `.parquet` publicados pelo `duckflow`.
+
+Esta interface agora exige autenticação local por senha.
+
+## Objetivo
+
+Resolver distribuição local de artefatos sem SMB, Syncthing ou FTP:
+
+- configura a URL remota do DuckFlow
+- usa autenticação por Bearer token
+- lista artefatos remotos publicados
+- permite selecionar quais artefatos manter localmente
+- baixa com arquivo temporário e troca segura
+- registra logs e status locais
+- executa sincronização manual ou automática
+
+## Estrutura
+
+```text
+duckpull/
+  src/
+    client/
+    server/
+  scripts/
+  docs/
+  data/
+```
+
+## Stack
+
+- Projeto único: Bun + Elysia + Vue 3 + Vite
+- Banco local: SQLite via `bun:sqlite`
+- Porta padrão: `http://localhost:5767`
+
+## Funcionalidades da V1
+
+- tela de configuração inicial
+- teste de conexão
+- listagem de artefatos remotos
+- seleção por artefato
+- sincronização manual
+- sincronização automática por intervalo
+- logs locais
+- status por artefato:
+  - `never_synced`
+  - `synchronized`
+  - `downloading`
+  - `error`
+  - `updated`
+
+## API local do duckpull
+
+- `GET /api/health`
+- `GET /api/settings`
+- `PUT /api/settings`
+- `POST /api/test-connection`
+- `GET /api/remote-artifacts`
+- `PUT /api/artifacts/:id`
+- `POST /api/sync`
+- `GET /api/sync/status`
+- `GET /api/logs`
+
+## Scripts
+
+Os scripts de `start` agora tentam preparar o ambiente automaticamente.
+
+Se o Bun não estiver instalado:
+
+- no Windows, o script tenta instalar via `winget` e faz fallback para o instalador oficial
+- no Linux, o script tenta instalar via `curl https://bun.sh/install`
+
+### Linux
+
+```bash
+cd duckpull
+chmod +x scripts/start-linux.sh scripts/stop-linux.sh
+./scripts/start-linux.sh
+./scripts/stop-linux.sh
+```
+
+### Windows
+
+Use preferencialmente os arquivos `.bat`:
+
+```bat
+cd duckpull
+scripts\start-windows.bat
+scripts\stop-windows.bat
+```
+
+Os `.ps1` continuam existindo internamente, mas os `.bat` são a entrada mais simples para o usuário final.
+
+O script de `start`:
+
+- cria `.env` se faltar
+- tenta instalar/configurar o Bun se ele não existir
+- roda `bun install`
+- faz o build se `dist/` não existir
+- sobe o serviço em segundo plano
+- salva PID em `data/runtime/duckpull.pid`
+- grava log em `data/runtime/duckpull.log`
+- no Windows, erros também vão para `data/runtime/duckpull-error.log`
+
+O script de `stop` encerra o processo salvo no PID file.
+
+### Autostart
+
+Linux:
+
+```bash
+./scripts/enable-autostart-linux.sh
+./scripts/disable-autostart-linux.sh
+```
+
+Windows:
+
+```bat
+scripts\enable-autostart-windows.bat
+scripts\disable-autostart-windows.bat
+```
+
+No Linux, o autostart usa `systemd --user`.
+No Windows, usa o Agendador de Tarefas no logon do usuário.
+
+## Configuração
+
+A senha inicial de acesso é `@trunks.`.
+
+Ela não é salva em texto puro: o `duckpull` grava apenas o hash criptográfico no SQLite local.
+
+Depois de subir o serviço, abra:
+
+```text
+http://localhost:5767
+```
+
+Na tela inicial configure:
+
+- `API base URL`
+- `Token Bearer`
+- `Pasta de destino`
+- botão `Escolher...` para abrir o seletor nativo de pasta no sistema operacional
+- `Intervalo de sincronização`
+- `Sincronização automática`
+
+## Persistência local
+
+O banco SQLite é criado em:
+
+```text
+duckpull/data/runtime/duckpull.db
+```
+
+Por padrão, os artefatos sincronizados ficam em:
+
+```text
+duckpull/data/runtime/synced-artifacts
+```
+
+Você pode trocar a pasta de destino pela interface.
+
+## Segurança de atualização de arquivo
+
+O download sempre acontece para um arquivo temporário primeiro.
+
+Fluxo:
+
+1. baixa para `arquivo.tmp`
+2. valida checksum quando `sha256` existe
+3. troca o arquivo final
+4. em caso de falha na substituição, mantém rollback do original
+
+## Resiliência operacional
+
+O `duckpull` agora inclui:
+
+- timeout total de download
+- timeout de download parado
+- tentativas automáticas com backoff
+- limpeza automática de arquivos `.tmp` e `.bak` órfãos
+- fila simples para evitar syncs concorrentes
+- autostart opcional no Windows e Linux
+
+Variáveis opcionais no `.env`:
+
+```text
+DUCKPULL_DOWNLOAD_TIMEOUT_MS=900000
+DUCKPULL_STALL_TIMEOUT_MS=30000
+DUCKPULL_RETRY_COUNT=3
+DUCKPULL_RETRY_BACKOFF_MS=2000
+```
+
+## Contrato esperado do DuckFlow
+
+O contrato remoto esperado está em:
+
+[docs/duckflow-artifacts-api.md](/Users/raniere/Dev/duck_project/duckpull/docs/duckflow-artifacts-api.md)
+
+## Desenvolvimento
+
+### Projeto único
+
+```bash
+cd duckpull
+bun install
+bun run dev
+```
+
+### UI em modo Vite
+
+```bash
+cd duckpull
+bun run dev:web
+```
+
+### Build e execução local
+
+```bash
+cd duckpull
+bun install
+bun run build
+bun start
+```
+
+## Observações
+
+- O `duckpull` não altera `duckflow` nem `duckpad`.
+- O contrato remoto do DuckFlow foi apenas documentado nesta V1.
+- O servidor local serve a build estática do frontend quando `dist/` existir.
+</file>
+
+</files>

@@ -1,231 +1,113 @@
 # duckpull
 
-`duckpull` é o cliente leve do ecossistema Duck. Ele roda sem Docker, expõe uma interface web local e sincroniza artefatos `.duckdb` e `.parquet` publicados pelo `duckflow`.
+Cliente leve de sincronização de artefatos do ecossistema Duck. Roda direto no seu computador — sem Docker — expõe uma interface web local e mantém arquivos `.duckdb` e `.parquet` publicados pelo DuckFlow sempre atualizados.
 
-Esta interface agora exige autenticação local por senha.
+> Arquitetura detalhada em [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-## Objetivo
+---
 
-Resolver distribuição local de artefatos sem SMB, Syncthing ou FTP:
+## Como funciona
 
-- configura a URL remota do DuckFlow
-- usa autenticação por Bearer token
-- lista artefatos remotos publicados
-- permite selecionar quais artefatos manter localmente
-- baixa com arquivo temporário e troca segura
-- registra logs e status locais
-- executa sincronização manual ou automática
+1. Você configura a URL do servidor remoto (DuckFlow) e um token de acesso
+2. O duckpull lista os artefatos disponíveis e você escolhe quais quer manter localmente
+3. A sincronização roda automaticamente em segundo plano, no intervalo que você definir
+4. Se um arquivo não mudou, ele não é baixado de novo
 
-## Estrutura
+---
 
-```text
-duckpull/
-  src/
-    client/
-    server/
-  scripts/
-  docs/
-  data/
-```
+## Início rápido
 
-## Stack
-
-- Projeto único: Bun + Elysia + Vue 3 + Vite
-- Banco local: SQLite via `bun:sqlite`
-- Porta padrão: `http://localhost:5767`
-
-## Funcionalidades da V1
-
-- tela de configuração inicial
-- teste de conexão
-- listagem de artefatos remotos
-- seleção por artefato
-- sincronização manual
-- sincronização automática por intervalo
-- logs locais
-- status por artefato:
-  - `never_synced`
-  - `synchronized`
-  - `downloading`
-  - `error`
-  - `updated`
-
-## API local do duckpull
-
-- `GET /api/health`
-- `GET /api/settings`
-- `PUT /api/settings`
-- `POST /api/test-connection`
-- `GET /api/remote-artifacts`
-- `PUT /api/artifacts/:id`
-- `POST /api/sync`
-- `GET /api/sync/status`
-- `GET /api/logs`
-
-## Scripts
-
-Os scripts de `start` agora tentam preparar o ambiente automaticamente.
-
-Se o Bun não estiver instalado:
-
-- no Windows, o script tenta instalar via `winget` e faz fallback para o instalador oficial
-- no Linux, o script tenta instalar via `curl https://bun.sh/install`
-
-### Linux
-
+**Linux**
 ```bash
-cd duckpull
-chmod +x scripts/start-linux.sh scripts/stop-linux.sh
+chmod +x scripts/start-linux.sh
 ./scripts/start-linux.sh
-./scripts/stop-linux.sh
 ```
 
-### Windows
-
-Use preferencialmente os arquivos `.bat`:
-
+**Windows**
 ```bat
-cd duckpull
 scripts\start-windows.bat
-scripts\stop-windows.bat
 ```
 
-Os `.ps1` continuam existindo internamente, mas os `.bat` são a entrada mais simples para o usuário final.
+Os scripts cuidam de tudo: instalam o Bun se necessário, fazem o build do frontend e sobem o serviço em segundo plano.
 
-O script de `start`:
+Depois, acesse:
+```
+http://localhost:5767
+```
 
-- cria `.env` se faltar
-- tenta instalar/configurar o Bun se ele não existir
-- roda `bun install`
-- faz o build se `dist/` não existir
-- sobe o serviço em segundo plano
-- salva PID em `data/runtime/duckpull.pid`
-- grava log em `data/runtime/duckpull.log`
-- no Windows, erros também vão para `data/runtime/duckpull-error.log`
+A senha inicial é `@trunks.`
 
-O script de `stop` encerra o processo salvo no PID file.
+---
 
-### Autostart
+## Configuração
 
-Linux:
+Na tela inicial, preencha:
 
+| Campo | Descrição |
+|-------|-----------|
+| API base URL | Endereço do servidor DuckFlow |
+| Token Bearer | Chave de acesso à API remota |
+| Pasta de destino | Onde os arquivos serão salvos localmente |
+| Intervalo de sync | A cada quantos minutos verificar novidades |
+| Sincronização automática | Liga/desliga o agendador |
+
+O botão **Escolher...** abre o seletor de pasta nativo do sistema operacional.
+
+Variáveis de ambiente disponíveis no `.env`:
+
+```env
+DUCKPULL_HOST=127.0.0.1
+DUCKPULL_PORT=5767
+DUCKPULL_DATA_DIR=./data/runtime
+DUCKPULL_DOWNLOAD_TIMEOUT_MS=900000
+DUCKPULL_STALL_TIMEOUT_MS=30000
+```
+
+---
+
+## Autostart
+
+**Linux** — via systemd do usuário:
 ```bash
 ./scripts/enable-autostart-linux.sh
 ./scripts/disable-autostart-linux.sh
 ```
 
-Windows:
-
+**Windows** — via Agendador de Tarefas:
 ```bat
 scripts\enable-autostart-windows.bat
 scripts\disable-autostart-windows.bat
 ```
 
-No Linux, o autostart usa `systemd --user`.
-No Windows, usa o Agendador de Tarefas no logon do usuário.
+---
 
-## Configuração
+## Dados locais
 
-A senha inicial de acesso é `@trunks.`.
+| Caminho | Conteúdo |
+|---------|----------|
+| `data/runtime/duckpull.db` | Banco SQLite (configurações, histórico, estado dos artefatos) |
+| `data/runtime/synced-artifacts/` | Arquivos baixados (pasta padrão, alterável na interface) |
+| `data/runtime/duckpull.log` | Log do processo |
 
-Ela não é salva em texto puro: o `duckpull` grava apenas o hash criptográfico no SQLite local.
+---
 
-Depois de subir o serviço, abra:
+## Stack
 
-```text
-http://localhost:5767
+- **Runtime:** [Bun](https://bun.sh)
+- **Servidor:** [Elysia](https://elysiajs.com)
+- **Interface:** Vue 3 + Vite
+- **Banco:** SQLite via `bun:sqlite`
+
+---
+
+## Contrato da API remota
+
+O duckpull espera os seguintes endpoints no servidor DuckFlow:
+
+```
+GET /artifacts              → lista artefatos disponíveis
+GET /artifacts/:id/meta     → metadados (sha256, etag, tamanho)
+GET /artifacts/:id/download → download em streaming
 ```
 
-Na tela inicial configure:
-
-- `API base URL`
-- `Token Bearer`
-- `Pasta de destino`
-- botão `Escolher...` para abrir o seletor nativo de pasta no sistema operacional
-- `Intervalo de sincronização`
-- `Sincronização automática`
-
-## Persistência local
-
-O banco SQLite é criado em:
-
-```text
-duckpull/data/runtime/duckpull.db
-```
-
-Por padrão, os artefatos sincronizados ficam em:
-
-```text
-duckpull/data/runtime/synced-artifacts
-```
-
-Você pode trocar a pasta de destino pela interface.
-
-## Segurança de atualização de arquivo
-
-O download sempre acontece para um arquivo temporário primeiro.
-
-Fluxo:
-
-1. baixa para `arquivo.tmp`
-2. valida checksum quando `sha256` existe
-3. troca o arquivo final
-4. em caso de falha na substituição, mantém rollback do original
-
-## Resiliência operacional
-
-O `duckpull` agora inclui:
-
-- timeout total de download
-- timeout de download parado
-- tentativas automáticas com backoff
-- limpeza automática de arquivos `.tmp` e `.bak` órfãos
-- fila simples para evitar syncs concorrentes
-- autostart opcional no Windows e Linux
-
-Variáveis opcionais no `.env`:
-
-```text
-DUCKPULL_DOWNLOAD_TIMEOUT_MS=900000
-DUCKPULL_STALL_TIMEOUT_MS=30000
-DUCKPULL_RETRY_COUNT=3
-DUCKPULL_RETRY_BACKOFF_MS=2000
-```
-
-## Contrato esperado do DuckFlow
-
-O contrato remoto esperado está em:
-
-[docs/duckflow-artifacts-api.md](/Users/raniere/Dev/duck_project/duckpull/docs/duckflow-artifacts-api.md)
-
-## Desenvolvimento
-
-### Projeto único
-
-```bash
-cd duckpull
-bun install
-bun run dev
-```
-
-### UI em modo Vite
-
-```bash
-cd duckpull
-bun run dev:web
-```
-
-### Build e execução local
-
-```bash
-cd duckpull
-bun install
-bun run build
-bun start
-```
-
-## Observações
-
-- O `duckpull` não altera `duckflow` nem `duckpad`.
-- O contrato remoto do DuckFlow foi apenas documentado nesta V1.
-- O servidor local serve a build estática do frontend quando `dist/` existir.
+Detalhes completos em [`docs/duckflow-artifacts-api.md`](docs/duckflow-artifacts-api.md).

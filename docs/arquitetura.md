@@ -29,22 +29,20 @@ A arquitetura foi desenhada para resolver a distribuição local desses artefato
 
 ```mermaid
 flowchart TD
-    U[Usuário] --> UI[Frontend local<br/>Vue + Vite]
-    UI --> API[Servidor local<br/>Bun + Elysia]
+    U[Usuario] --> UI[Frontend local Vue e Vite]
+    UI --> API[Servidor local Bun e Elysia]
 
-    API --> AUTH[Autenticação local<br/>cookie assinado]
-    API --> DB[(SQLite local)]
+    API --> AUTH[Autenticacao local]
+    API --> DB[SQLite local]
     API --> SYNC[Sync Manager]
-    API --> PICKER[Integração com sistema operacional]
+    API --> PICKER[Integracao com sistema operacional]
 
-    SYNC --> REMOTE[DuckFlow remoto<br/>API HTTP]
-    REMOTE --> SYNC
+    SYNC --> REMOTE[DuckFlow remoto API HTTP]
+    SYNC --> FILES[Pasta local sincronizada]
 
-    SYNC --> FILES[Pasta local sincronizada<br/>.duckdb / .parquet]
-
-    DB --> CFG[Configurações]
-    DB --> ART[Catálogo de artefatos]
-    DB --> STATE[Estado de sincronização]
+    DB --> CFG[Configuracoes]
+    DB --> ART[Catalogo de artefatos]
+    DB --> STATE[Estado de sincronizacao]
     DB --> LOGS[Logs operacionais]
 Camadas da aplicação
 1. Apresentação
@@ -56,7 +54,7 @@ teste de conexão
 listagem e seleção de artefatos
 disparo de sincronização
 visualização de status e logs
-Essa camada é responsável apenas pela experiência do usuário e pela comunicação com a API local.
+Essa camada é responsável pela experiência do usuário e pela comunicação com a API local.
 2. API local
 A API local centraliza a lógica de entrada da aplicação. Ela:
 valida autenticação
@@ -88,9 +86,39 @@ API remota do duckflow
 sistema operacional local para seleção e abertura de diretórios
 filesystem local para armazenamento dos arquivos sincronizados
 Topologia por camadas
+flowchart LR
+    subgraph APRESENTACAO
+        UI[Vue UI]
+    end
 
+    subgraph BACKEND_LOCAL
+        API[Elysia API]
+        AUTH[Auth]
+        REMOTE_API[Remote API Client]
+        SYNC[Sync Manager]
+        PICKER[Folder Picker]
+    end
 
+    subgraph PERSISTENCIA
+        DB[SQLite]
+    end
 
+    subgraph EXTERNO
+        DF[DuckFlow remoto]
+        FS[Pasta local sincronizada]
+        OS[Sistema operacional]
+    end
+
+    UI --> API
+    API --> AUTH
+    API --> REMOTE_API
+    API --> SYNC
+    API --> PICKER
+    API --> DB
+    REMOTE_API --> DF
+    SYNC --> REMOTE_API
+    SYNC --> FS
+    PICKER --> OS
 Estrutura do projeto
 duckpull/
 ├── docs/
@@ -233,17 +261,47 @@ mensagem
 artefato relacionado, quando houver
 timestamp
 Fluxo principal de autenticação
+sequenceDiagram
+    participant U as Usuario
+    participant UI as Frontend
+    participant API as API local
+    participant DB as SQLite
 
-
-
+    U->>UI: Informa senha
+    UI->>API: POST /api/auth/login
+    API->>DB: Le hash da senha
+    API-->>UI: Define cookie de sessao
+    UI->>API: GET /api/auth/status
+    API-->>UI: Retorna authenticated true
 Fluxo principal de descoberta de artefatos
+sequenceDiagram
+    participant UI as Frontend
+    participant API as API local
+    participant REM as DuckFlow remoto
+    participant DB as SQLite
 
-
-
+    UI->>API: GET /api/remote-artifacts
+    API->>REM: GET /artifacts
+    REM-->>API: Lista de artefatos
+    API->>DB: Atualiza catalogo local
+    API-->>UI: Retorna artefatos com estado local
 Fluxo principal de sincronização
+sequenceDiagram
+    participant UI as Frontend
+    participant API as API local
+    participant SYNC as Sync Manager
+    participant REM as DuckFlow remoto
+    participant FS as Arquivos locais
+    participant DB as SQLite
 
-
-
+    UI->>API: POST /api/sync
+    API->>SYNC: Solicita sincronizacao
+    SYNC->>REM: Consulta metadados e download
+    REM-->>SYNC: Arquivo remoto
+    SYNC->>FS: Escreve arquivo temporario
+    SYNC->>FS: Promove para arquivo final
+    SYNC->>DB: Atualiza estado e logs
+    API-->>UI: Retorna status
 Segurança operacional do download
 O download foi desenhado para reduzir risco de corrupção de arquivo local. O fluxo operacional segue a lógica abaixo:
 o arquivo é baixado para um caminho temporário

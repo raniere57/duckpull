@@ -41,7 +41,10 @@ The content is organized as follows:
 
 <directory_structure>
 docs/
+  arquitetura.md
   duckflow-artifacts-api.md
+  duckpull_visao_geral.svg
+  duckpull-topology.svg
 scripts/
   disable-autostart-linux.sh
   disable-autostart-windows.bat
@@ -79,87 +82,315 @@ vite.config.js
 <files>
 This section contains the contents of the repository's files.
 
-<file path="docs/duckflow-artifacts-api.md">
-# Contrato esperado da API remota do DuckFlow
+<file path="docs/duckpull_visao_geral.svg">
+<svg width="100%" viewBox="0 0 680 580" xmlns="http://www.w3.org/2000/svg">
+<defs>
+  <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+    <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </marker>
+<mask id="imagine-text-gaps-8bebd3" maskUnits="userSpaceOnUse"><rect x="0" y="0" width="680" height="580" fill="white"/><rect x="71.8125" y="57.234375" width="116.375" height="21.53125" fill="black" rx="2"/><rect x="52.71875" y="78.484375" width="154.5625" height="19.03125" fill="black" rx="2"/><rect x="71.546875" y="94.484375" width="116.90625" height="19.03125" fill="black" rx="2"/><rect x="223.03125" y="62.078125" width="41.9375" height="19.015625" fill="black" rx="2"/><rect x="210.75" y="84.078125" width="66.5" height="19.015625" fill="black" rx="2"/><rect x="317.5" y="52.234375" width="85" height="21.53125" fill="black" rx="2"/><rect x="304.921875" y="73.484375" width="110.15625" height="19.03125" fill="black" rx="2"/><rect x="282.765625" y="89.484375" width="154.46875" height="19.03125" fill="black" rx="2"/><rect x="454.78125" y="62.078125" width="38.4375" height="19.015625" fill="black" rx="2"/><rect x="448.640625" y="84.078125" width="50.71875" height="19.015625" fill="black" rx="2"/><rect x="536.40625" y="52.234375" width="75.1875" height="21.53125" fill="black" rx="2"/><rect x="523.421875" y="73.484375" width="101.15625" height="19.03125" fill="black" rx="2"/><rect x="519.421875" y="89.484375" width="109.15625" height="19.03125" fill="black" rx="2"/><rect x="436.1875" y="151.078125" width="87.625" height="19.015625" fill="black" rx="2"/><rect x="254.703125" y="239.234375" width="210.59375" height="21.515625" fill="black" rx="2"/><rect x="223.90625" y="260.484375" width="272.1875" height="19.015625" fill="black" rx="2"/><rect x="142.421875" y="357.25" width="143.15625" height="21.515625" fill="black" rx="2"/><rect x="138.296875" y="378.484375" width="151.40625" height="19.015625" fill="black" rx="2"/><rect x="148.890625" y="394.484375" width="130.21875" height="19.015625" fill="black" rx="2"/><rect x="408.609375" y="357.25" width="114.78125" height="21.515625" fill="black" rx="2"/><rect x="382.171875" y="378.484375" width="167.65625" height="19.015625" fill="black" rx="2"/><rect x="391.3125" y="394.484375" width="149.375" height="19.015625" fill="black" rx="2"/><rect x="249.0625" y="481.25" width="181.875" height="21.515625" fill="black" rx="2"/><rect x="163.375" y="502.5" width="353.25" height="19.015625" fill="black" rx="2"/></mask></defs>
 
-O `duckpull` assume um contrato HTTP simples para descobrir artefatos publicados e fazer download seguro.
+<!-- SERVIDOR REMOTO -->
+<g onclick="sendPrompt('O que é o DuckFlow e como ele publica os arquivos?')" style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
+  <rect x="40" y="40" width="180" height="90" rx="12" stroke-width="0.5" style="fill:rgb(113, 43, 19);stroke:rgb(240, 153, 123);color:rgb(255, 255, 255);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="130" y="68" text-anchor="middle" dominant-baseline="central" style="fill:rgb(245, 196, 179);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Servidor remoto</text>
+  <text x="130" y="88" text-anchor="middle" dominant-baseline="central" style="fill:rgb(240, 153, 123);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">Publica arquivos de dados</text>
+  <text x="130" y="104" text-anchor="middle" dominant-baseline="central" style="fill:rgb(240, 153, 123);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">(.duckdb, .parquet)</text>
+</g>
 
-## Autenticação
+<!-- seta 1: servidor → verificação -->
+<line x1="220" y1="85" x2="268" y2="85" marker-end="url(#arrow)" mask="url(#imagine-text-gaps-8bebd3)" style="fill:none;stroke:rgb(156, 154, 146);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<text x="244" y="76" text-anchor="middle" fill="var(--color-text-tertiary)" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">checa</text>
+<text x="244" y="98" text-anchor="middle" fill="var(--color-text-tertiary)" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">novidades</text>
 
-- `Authorization: Bearer <token>`
+<!-- VERIFICAÇÃO -->
+<g onclick="sendPrompt('Como o duckpull decide se precisa baixar um arquivo ou não?')" style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
+  <rect x="270" y="40" width="180" height="90" rx="12" stroke-width="0.5" style="fill:rgb(99, 56, 6);stroke:rgb(239, 159, 39);color:rgb(255, 255, 255);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="360" y="63" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250, 199, 117);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Verificação</text>
+  <text x="360" y="83" text-anchor="middle" dominant-baseline="central" style="fill:rgb(239, 159, 39);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">Compara versões:</text>
+  <text x="360" y="99" text-anchor="middle" dominant-baseline="central" style="fill:rgb(239, 159, 39);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">mudou? baixa. igual? pula.</text>
+</g>
 
-## Endpoints
+<!-- seta 2: verificação → download -->
+<line x1="450" y1="85" x2="498" y2="85" marker-end="url(#arrow)" mask="url(#imagine-text-gaps-8bebd3)" style="fill:none;stroke:rgb(156, 154, 146);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<text x="474" y="76" text-anchor="middle" fill="var(--color-text-tertiary)" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">baixa</text>
+<text x="474" y="98" text-anchor="middle" fill="var(--color-text-tertiary)" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">arquivo</text>
 
-### `GET /artifacts`
+<!-- DOWNLOAD -->
+<g onclick="sendPrompt('Como funciona o download com validação de integridade no duckpull?')" style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
+  <rect x="500" y="40" width="148" height="90" rx="12" stroke-width="0.5" style="fill:rgb(99, 56, 6);stroke:rgb(239, 159, 39);color:rgb(255, 255, 255);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="574" y="63" text-anchor="middle" dominant-baseline="central" style="fill:rgb(250, 199, 117);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Download</text>
+  <text x="574" y="83" text-anchor="middle" dominant-baseline="central" style="fill:rgb(239, 159, 39);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">Baixa em partes,</text>
+  <text x="574" y="99" text-anchor="middle" dominant-baseline="central" style="fill:rgb(239, 159, 39);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">valida integridade</text>
+</g>
 
-Lista os artefatos disponíveis para consumo.
+<!-- seta 3: download → pasta local (curva para baixo) -->
+<path d="M574 132 L574 175 L360 175 L360 218" fill="none" stroke="var(--color-border-secondary)" stroke-width="1.5" marker-end="url(#arrow)" style="fill:none;stroke:rgba(222, 220, 209, 0.3);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<text x="480" y="165" text-anchor="middle" fill="var(--color-text-tertiary)" style="fill:rgb(194, 192, 182);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:auto">salva na pasta</text>
 
-Resposta esperada:
+<!-- PASTA LOCAL -->
+<g onclick="sendPrompt('Onde ficam os arquivos sincronizados e como são organizados?')" style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
+  <rect x="220" y="220" width="280" height="80" rx="12" stroke-width="0.5" style="fill:rgb(8, 80, 65);stroke:rgb(93, 202, 165);color:rgb(255, 255, 255);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="360" y="250" text-anchor="middle" dominant-baseline="central" style="fill:rgb(159, 225, 203);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Pasta local no seu computador</text>
+  <text x="360" y="270" text-anchor="middle" dominant-baseline="central" style="fill:rgb(93, 202, 165);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">Arquivos prontos para uso, sempre atualizados</text>
+</g>
 
-```json
-{
-  "artifacts": [
-    {
-      "id": "views",
-      "name": "views",
-      "filename": "views.duckdb",
-      "type": "duckdb",
-      "size_bytes": 1024000,
-      "sha256": "3f0e...",
-      "etag": "\"views-20260316\"",
-      "updated_at": "2026-03-16T11:20:00Z",
-      "download_url": "/artifacts/views/download"
-    }
-  ]
-}
-```
+<!-- seta: pasta → histórico -->
+<line x1="360" y1="300" x2="360" y2="340" marker-end="url(#arrow)" style="fill:none;stroke:rgb(156, 154, 146);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
 
-Campos mínimos:
+<!-- HISTÓRICO E CONTROLE (dois boxes lado a lado) -->
+<g onclick="sendPrompt('O que o duckpull registra no seu histórico e banco de dados interno?')" style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
+  <rect x="100" y="342" width="228" height="80" rx="12" stroke-width="0.5" style="fill:rgb(12, 68, 124);stroke:rgb(133, 183, 235);color:rgb(255, 255, 255);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="214" y="368" text-anchor="middle" dominant-baseline="central" style="fill:rgb(181, 212, 244);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Histórico e registros</text>
+  <text x="214" y="388" text-anchor="middle" dominant-baseline="central" style="fill:rgb(133, 183, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">Guarda o que foi baixado,</text>
+  <text x="214" y="404" text-anchor="middle" dominant-baseline="central" style="fill:rgb(133, 183, 235);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">quando e se teve erro</text>
+</g>
 
-- `id`
-- `name`
-- `filename`
-- `type`
-- `download_url`
+<g onclick="sendPrompt('Como funciona a tela de controle do duckpull no navegador?')" style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
+  <rect x="352" y="342" width="228" height="80" rx="12" stroke-width="0.5" style="fill:rgb(60, 52, 137);stroke:rgb(175, 169, 236);color:rgb(255, 255, 255);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="466" y="368" text-anchor="middle" dominant-baseline="central" style="fill:rgb(206, 203, 246);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Tela de controle</text>
+  <text x="466" y="388" text-anchor="middle" dominant-baseline="central" style="fill:rgb(175, 169, 236);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">Interface no navegador para</text>
+  <text x="466" y="404" text-anchor="middle" dominant-baseline="central" style="fill:rgb(175, 169, 236);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">configurar e acompanhar</text>
+</g>
 
-Campos recomendados:
+<!-- seta: histórico → agendamento -->
+<line x1="214" y1="424" x2="214" y2="464" marker-end="url(#arrow)" style="fill:none;stroke:rgb(156, 154, 146);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+<!-- seta: tela → agendamento -->
+<line x1="466" y1="424" x2="466" y2="464" marker-end="url(#arrow)" style="fill:none;stroke:rgb(156, 154, 146);color:rgb(255, 255, 255);stroke-width:1.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
 
-- `size_bytes`
-- `sha256`
-- `etag`
-- `updated_at`
+<!-- AGENDAMENTO -->
+<g onclick="sendPrompt('Como funciona o agendamento automático de sincronização no duckpull?')" style="fill:rgb(0, 0, 0);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto">
+  <rect x="100" y="466" width="480" height="68" rx="12" stroke-width="0.5" style="fill:rgb(68, 68, 65);stroke:rgb(180, 178, 169);color:rgb(255, 255, 255);stroke-width:0.5px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
+  <text x="340" y="492" text-anchor="middle" dominant-baseline="central" style="fill:rgb(211, 209, 199);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:14px;font-weight:500;text-anchor:middle;dominant-baseline:central">Agendamento automático</text>
+  <text x="340" y="512" text-anchor="middle" dominant-baseline="central" style="fill:rgb(180, 178, 169);stroke:none;color:rgb(255, 255, 255);stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:12px;font-weight:400;text-anchor:middle;dominant-baseline:central">Repete o ciclo a cada X minutos, sem precisar de ação manual</text>
+</g>
 
-### `GET /artifacts/:id/meta`
+<!-- seta de volta: agendamento → servidor (linha curva pela esquerda) -->
+<path d="M100 500 L60 500 L60 85 L38 85" fill="none" stroke="var(--color-border-tertiary)" stroke-width="1" stroke-dasharray="5 3" marker-end="url(#arrow)" mask="url(#imagine-text-gaps-8bebd3)" style="fill:none;stroke:rgba(222, 220, 209, 0.15);color:rgb(255, 255, 255);stroke-width:1px;stroke-dasharray:5px, 3px;stroke-linecap:butt;stroke-linejoin:miter;opacity:1;font-family:&quot;Anthropic Sans&quot;, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, sans-serif;font-size:16px;font-weight:400;text-anchor:start;dominant-baseline:auto"/>
 
-Retorna somente os metadados de um artefato.
+</svg>
+</file>
 
-### `GET /artifacts/:id/download`
+<file path="docs/duckpull-topology.svg">
+<svg width="900" viewBox="0 0 900 1020" xmlns="http://www.w3.org/2000/svg" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M2 1L8 5L2 9" fill="none" stroke="#b45309" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+  </defs>
 
-Retorna o conteúdo binário do arquivo.
+  <!-- Background -->
+  <rect width="900" height="1020" fill="#0f1a15" rx="16"/>
 
-Headers recomendados:
+  <!-- ─────────────────────────────────────────── -->
+  <!-- LAYER 1: Scripts / OS -->
+  <!-- ─────────────────────────────────────────── -->
+  <text x="36" y="36" fill="#6b9e84" font-size="11" font-weight="500" letter-spacing="0.08em" text-transform="uppercase">CAMADA DE SCRIPTS / OS</text>
+  <rect x="24" y="44" width="852" height="110" rx="10" fill="none" stroke="#2a3d34" stroke-width="1" stroke-dasharray="5 3"/>
 
-- `Content-Type`
-- `Content-Length`
-- `ETag`
-- `Last-Modified`
-- `Content-Disposition: attachment; filename="views.duckdb"`
+  <!-- start-linux.sh -->
+  <rect x="40" y="58" width="158" height="56" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="119" y="82" fill="#c4ddd1" font-size="13" font-weight="500" text-anchor="middle">start-linux.sh</text>
+  <text x="119" y="99" fill="#6b9e84" font-size="11" text-anchor="middle">Bun · pid · log</text>
 
-## Comportamento recomendado no DuckFlow
+  <!-- stop-linux.sh -->
+  <rect x="40" y="120" width="158" height="22" rx="5" fill="#161e1b" stroke="#2a3d34" stroke-width="0.5"/>
+  <text x="119" y="135" fill="#4d7a63" font-size="11" text-anchor="middle">stop-linux.sh</text>
 
-- `GET /artifacts` deve listar apenas artefatos publicados para distribuição.
-- Downloads devem permitir streaming.
-- `sha256` deve refletir o arquivo final publicado.
-- `download_url` pode ser absoluto ou relativo.
-- Se possível, manter `ETag` e `Last-Modified` coerentes para facilitar detecção de mudança.
+  <!-- start-windows.ps1 -->
+  <rect x="216" y="58" width="176" height="56" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="304" y="82" fill="#c4ddd1" font-size="13" font-weight="500" text-anchor="middle">start-windows.ps1</text>
+  <text x="304" y="99" fill="#6b9e84" font-size="11" text-anchor="middle">Bun · pid · log</text>
 
-## Opcional futuro
+  <!-- stop-windows.ps1 -->
+  <rect x="216" y="120" width="176" height="22" rx="5" fill="#161e1b" stroke="#2a3d34" stroke-width="0.5"/>
+  <text x="304" y="135" fill="#4d7a63" font-size="11" text-anchor="middle">stop-windows.ps1</text>
 
-- `GET /artifacts/changes?since=...`
-- `GET /artifacts/:id/history`
-- `SSE /artifacts/events`
+  <!-- systemd (Linux) -->
+  <rect x="410" y="58" width="168" height="56" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="494" y="82" fill="#c4ddd1" font-size="13" font-weight="500" text-anchor="middle">systemd (Linux)</text>
+  <text x="494" y="99" fill="#6b9e84" font-size="11" text-anchor="middle">enable / disable autostart</text>
 
-O `duckpull` V1 não depende desses endpoints opcionais.
+  <!-- Task Scheduler -->
+  <rect x="596" y="58" width="168" height="56" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="680" y="82" fill="#c4ddd1" font-size="13" font-weight="500" text-anchor="middle">Task Scheduler</text>
+  <text x="680" y="99" fill="#6b9e84" font-size="11" text-anchor="middle">autostart Windows</text>
+
+  <!-- Arrow: scripts → process -->
+  <line x1="450" y1="154" x2="450" y2="181" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ─────────────────────────────────────────── -->
+  <!-- LAYER 2: Processo Bun -->
+  <!-- ─────────────────────────────────────────── -->
+  <text x="36" y="176" fill="#6b9e84" font-size="11" font-weight="500" letter-spacing="0.08em">PROCESSO BUN (RUNTIME)</text>
+  <rect x="24" y="184" width="852" height="68" rx="10" fill="none" stroke="#1d4d38" stroke-width="1" stroke-dasharray="5 3"/>
+
+  <rect x="120" y="196" width="660" height="44" rx="7" fill="#0e2d22" stroke="#1d6b4a" stroke-width="0.5"/>
+  <text x="450" y="214" fill="#7ee8b4" font-size="13" font-weight="500" text-anchor="middle">bun src/server/index.js</text>
+  <text x="450" y="230" fill="#3d9e6e" font-size="11" text-anchor="middle">HTTP :5767  ·  Elysia framework  ·  serve static dist/</text>
+
+  <!-- Arrow: Bun → Server -->
+  <line x1="450" y1="252" x2="450" y2="278" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ─────────────────────────────────────────── -->
+  <!-- LAYER 3: Servidor -->
+  <!-- ─────────────────────────────────────────── -->
+  <text x="36" y="274" fill="#6b9e84" font-size="11" font-weight="500" letter-spacing="0.08em">CAMADA DE SERVIDOR (src/server/)</text>
+  <rect x="24" y="282" width="852" height="262" rx="10" fill="none" stroke="#1d4d38" stroke-width="1" stroke-dasharray="5 3"/>
+
+  <!-- index.js (router) -->
+  <rect x="40" y="296" width="820" height="54" rx="7" fill="#0e2d22" stroke="#1d6b4a" stroke-width="0.5"/>
+  <text x="450" y="318" fill="#7ee8b4" font-size="13" font-weight="500" text-anchor="middle">index.js — roteador Elysia</text>
+  <text x="450" y="335" fill="#3d9e6e" font-size="11" text-anchor="middle">/api/auth  ·  /api/settings  ·  /api/artifacts  ·  /api/sync  ·  /api/logs  ·  /api/pick-directory</text>
+
+  <!-- Arrows: index → row2 modules -->
+  <line x1="160" y1="350" x2="160" y2="370" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="306" y1="350" x2="306" y2="370" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="464" y1="350" x2="464" y2="370" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="640" y1="350" x2="640" y2="370" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- auth.js -->
+  <rect x="40" y="370" width="196" height="56" rx="7" fill="#1e1a2e" stroke="#4a3d7a" stroke-width="0.5"/>
+  <text x="138" y="392" fill="#c4b8f0" font-size="13" font-weight="500" text-anchor="middle">auth.js</text>
+  <text x="138" y="409" fill="#7a6db0" font-size="11" text-anchor="middle">Cookie HMAC · sessão 12h</text>
+
+  <!-- config.js -->
+  <rect x="248" y="370" width="160" height="56" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="328" y="392" fill="#c4ddd1" font-size="13" font-weight="500" text-anchor="middle">config.js</text>
+  <text x="328" y="409" fill="#6b9e84" font-size="11" text-anchor="middle">HOST · PORT · DATA_DIR</text>
+
+  <!-- db.js -->
+  <rect x="420" y="370" width="174" height="56" rx="7" fill="#0e1e30" stroke="#1d4a6b" stroke-width="0.5"/>
+  <text x="507" y="392" fill="#90c4e8" font-size="13" font-weight="500" text-anchor="middle">db.js</text>
+  <text x="507" y="409" fill="#3d7e9e" font-size="11" text-anchor="middle">bun:sqlite · 5 tabelas</text>
+
+  <!-- folder-picker.js -->
+  <rect x="606" y="370" width="196" height="56" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="704" y="392" fill="#c4ddd1" font-size="13" font-weight="500" text-anchor="middle">folder-picker.js</text>
+  <text x="704" y="409" fill="#6b9e84" font-size="11" text-anchor="middle">osascript / zenity / shell</text>
+
+  <!-- Arrows: index → row3 modules -->
+  <line x1="180" y1="350" x2="180" y2="438" stroke="#2a3d34" stroke-width="0.5" stroke-dasharray="3 2"/>
+  <line x1="180" y1="438" x2="180" y2="452" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+  <line x1="536" y1="350" x2="536" y2="438" stroke="#b45309" stroke-width="0.5" stroke-dasharray="3 2"/>
+  <line x1="536" y1="438" x2="536" y2="452" stroke="#b45309" stroke-width="1" marker-end="url(#arrow-amber)"/>
+
+  <!-- remote-api.js -->
+  <rect x="40" y="452" width="258" height="56" rx="7" fill="#2d1910" stroke="#7a3d1d" stroke-width="0.5"/>
+  <text x="169" y="474" fill="#f0b483" font-size="13" font-weight="500" text-anchor="middle">remote-api.js</text>
+  <text x="169" y="491" fill="#a0673a" font-size="11" text-anchor="middle">fetch streaming · sha256 · stall timeout</text>
+
+  <!-- sync-manager.js -->
+  <rect x="312" y="452" width="548" height="56" rx="7" fill="#221b08" stroke="#7a5a0d" stroke-width="0.5"/>
+  <text x="586" y="474" fill="#fde68a" font-size="13" font-weight="500" text-anchor="middle">sync-manager.js</text>
+  <text x="586" y="491" fill="#a07820" font-size="11" text-anchor="middle">scheduler · runSyncLoop · retry 3x · cleanup stale on boot</text>
+
+  <!-- Arrow sync-manager → remote-api -->
+  <line x1="312" y1="480" x2="300" y2="480" stroke="#b45309" stroke-width="1" marker-end="url(#arrow-amber)"/>
+
+  <!-- Arrow: Server → Data -->
+  <line x1="450" y1="544" x2="450" y2="570" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ─────────────────────────────────────────── -->
+  <!-- LAYER 4: Dados -->
+  <!-- ─────────────────────────────────────────── -->
+  <text x="36" y="566" fill="#6b9e84" font-size="11" font-weight="500" letter-spacing="0.08em">CAMADA DE DADOS (data/runtime/)</text>
+  <rect x="24" y="574" width="852" height="110" rx="10" fill="none" stroke="#1d4a6b" stroke-width="1" stroke-dasharray="5 3"/>
+
+  <!-- duckpull.db -->
+  <rect x="40" y="588" width="310" height="80" rx="7" fill="#0e1e30" stroke="#1d4a6b" stroke-width="0.5"/>
+  <text x="195" y="610" fill="#90c4e8" font-size="13" font-weight="500" text-anchor="middle">duckpull.db (SQLite · WAL)</text>
+  <text x="195" y="628" fill="#3d7e9e" font-size="11" text-anchor="middle">app_config · remote_sources · artifacts</text>
+  <text x="195" y="644" fill="#3d7e9e" font-size="11" text-anchor="middle">artifact_sync_state · sync_logs</text>
+
+  <!-- PID + Log -->
+  <rect x="364" y="588" width="152" height="36" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="440" y="610" fill="#c4ddd1" font-size="12" font-weight="500" text-anchor="middle">duckpull.pid</text>
+  <rect x="364" y="632" width="152" height="36" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="440" y="654" fill="#c4ddd1" font-size="12" font-weight="500" text-anchor="middle">duckpull.log</text>
+
+  <!-- synced-artifacts/ -->
+  <rect x="530" y="588" width="330" height="80" rx="7" fill="#0e2010" stroke="#1d5a2a" stroke-width="0.5"/>
+  <text x="695" y="610" fill="#86efac" font-size="13" font-weight="500" text-anchor="middle">synced-artifacts/</text>
+  <text x="695" y="628" fill="#3d9e5e" font-size="11" text-anchor="middle">artefatos .duckdb / .parquet</text>
+  <text x="695" y="644" fill="#3d9e5e" font-size="11" text-anchor="middle">read-only após sync concluído</text>
+
+  <!-- Arrow: Data → Client -->
+  <line x1="450" y1="684" x2="450" y2="710" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ─────────────────────────────────────────── -->
+  <!-- LAYER 5: Cliente -->
+  <!-- ─────────────────────────────────────────── -->
+  <text x="36" y="706" fill="#6b9e84" font-size="11" font-weight="500" letter-spacing="0.08em">CAMADA DE CLIENTE (src/client/ → dist/)</text>
+  <rect x="24" y="714" width="852" height="136" rx="10" fill="none" stroke="#1d4d38" stroke-width="1" stroke-dasharray="5 3"/>
+
+  <!-- App.vue -->
+  <rect x="40" y="728" width="820" height="44" rx="7" fill="#0e2d22" stroke="#1d6b4a" stroke-width="0.5"/>
+  <text x="450" y="746" fill="#7ee8b4" font-size="13" font-weight="500" text-anchor="middle">App.vue (Vue 3 SPA)</text>
+  <text x="450" y="762" fill="#3d9e6e" font-size="11" text-anchor="middle">Auth · Config · Artifacts · Sync status · Logs  ·  polling /api/sync/status a cada 3s</text>
+
+  <!-- Vite -->
+  <rect x="40" y="784" width="256" height="50" rx="7" fill="#1e1a2e" stroke="#4a3d7a" stroke-width="0.5"/>
+  <text x="168" y="805" fill="#c4b8f0" font-size="13" font-weight="500" text-anchor="middle">Vite + vite-plugin-vue</text>
+  <text x="168" y="822" fill="#7a6db0" font-size="11" text-anchor="middle">build → dist/index.html</text>
+
+  <!-- index.css -->
+  <rect x="310" y="784" width="248" height="50" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="434" y="805" fill="#c4ddd1" font-size="13" font-weight="500" text-anchor="middle">index.css</text>
+  <text x="434" y="822" fill="#6b9e84" font-size="11" text-anchor="middle">dark theme · radial bg gradient</text>
+
+  <!-- main.js -->
+  <rect x="572" y="784" width="256" height="50" rx="7" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="700" y="805" fill="#c4ddd1" font-size="13" font-weight="500" text-anchor="middle">main.js</text>
+  <text x="700" y="822" fill="#6b9e84" font-size="11" text-anchor="middle">createApp(App).mount('#app')</text>
+
+  <!-- Arrow: Client → Remote API -->
+  <line x1="450" y1="850" x2="450" y2="876" stroke="#2a3d34" stroke-width="1" marker-end="url(#arrow)"/>
+
+  <!-- ─────────────────────────────────────────── -->
+  <!-- LAYER 6: API Remota -->
+  <!-- ─────────────────────────────────────────── -->
+  <text x="36" y="872" fill="#6b9e84" font-size="11" font-weight="500" letter-spacing="0.08em">API REMOTA (DuckFlow)</text>
+  <rect x="24" y="880" width="852" height="110" rx="10" fill="none" stroke="#7a3d1d" stroke-width="1" stroke-dasharray="5 3"/>
+
+  <!-- GET /artifacts -->
+  <rect x="40" y="894" width="258" height="80" rx="7" fill="#2d1910" stroke="#7a3d1d" stroke-width="0.5"/>
+  <text x="169" y="916" fill="#f0b483" font-size="13" font-weight="500" text-anchor="middle">GET /artifacts</text>
+  <text x="169" y="933" fill="#a0673a" font-size="11" text-anchor="middle">Lista artefatos disponíveis</text>
+  <text x="169" y="950" fill="#a0673a" font-size="11" text-anchor="middle">Authorization: Bearer &lt;token&gt;</text>
+
+  <!-- GET /artifacts/:id/meta -->
+  <rect x="316" y="894" width="258" height="80" rx="7" fill="#2d1910" stroke="#7a3d1d" stroke-width="0.5"/>
+  <text x="445" y="916" fill="#f0b483" font-size="13" font-weight="500" text-anchor="middle">GET /artifacts/:id/meta</text>
+  <text x="445" y="933" fill="#a0673a" font-size="11" text-anchor="middle">sha256 · etag · size</text>
+  <text x="445" y="950" fill="#a0673a" font-size="11" text-anchor="middle">updated_at · download_url</text>
+
+  <!-- GET /artifacts/:id/download -->
+  <rect x="592" y="894" width="268" height="80" rx="7" fill="#2d1910" stroke="#7a3d1d" stroke-width="0.5"/>
+  <text x="726" y="916" fill="#f0b483" font-size="13" font-weight="500" text-anchor="middle">GET /artifacts/:id/download</text>
+  <text x="726" y="933" fill="#a0673a" font-size="11" text-anchor="middle">streaming binário</text>
+  <text x="726" y="950" fill="#a0673a" font-size="11" text-anchor="middle">ETag · Content-Length</text>
+
+  <!-- ─────────────────────────────────────────── -->
+  <!-- LEGEND -->
+  <!-- ─────────────────────────────────────────── -->
+  <rect x="24" y="1000" width="852" height="1" fill="#2a3d34"/>
+  <rect x="40" y="1007" width="10" height="10" rx="2" fill="#0e2d22" stroke="#1d6b4a" stroke-width="0.5"/>
+  <text x="56" y="1016" fill="#4d7a63" font-size="10">Processo / entrada</text>
+  <rect x="180" y="1007" width="10" height="10" rx="2" fill="#0e1e30" stroke="#1d4a6b" stroke-width="0.5"/>
+  <text x="196" y="1016" fill="#4d7a63" font-size="10">Dados / DB</text>
+  <rect x="290" y="1007" width="10" height="10" rx="2" fill="#221b08" stroke="#7a5a0d" stroke-width="0.5"/>
+  <text x="306" y="1016" fill="#4d7a63" font-size="10">Sync / agendamento</text>
+  <rect x="440" y="1007" width="10" height="10" rx="2" fill="#2d1910" stroke="#7a3d1d" stroke-width="0.5"/>
+  <text x="456" y="1016" fill="#4d7a63" font-size="10">API remota / download</text>
+  <rect x="610" y="1007" width="10" height="10" rx="2" fill="#1e1a2e" stroke="#4a3d7a" stroke-width="0.5"/>
+  <text x="626" y="1016" fill="#4d7a63" font-size="10">Auth / build</text>
+  <rect x="710" y="1007" width="10" height="10" rx="2" fill="#1a2820" stroke="#354d42" stroke-width="0.5"/>
+  <text x="726" y="1016" fill="#4d7a63" font-size="10">Infra / OS / utilitários</text>
+</svg>
 </file>
 
 <file path="scripts/disable-autostart-linux.sh">
@@ -487,6 +718,130 @@ export default defineConfig({
 })
 </file>
 
+<file path="docs/duckflow-artifacts-api.md">
+# Contrato da API remota do DuckFlow
+
+O `duckpull` assume um contrato HTTP simples para descobrir artefatos publicados e fazer download seguro.
+
+---
+
+## Autenticação
+
+Todas as requisições devem incluir o header:
+
+```
+Authorization: Bearer <token>
+```
+
+---
+
+## Endpoints
+
+### `GET /artifacts`
+
+Lista os artefatos disponíveis para consumo.
+
+**Resposta esperada:**
+
+```json
+{
+  "artifacts": [
+    {
+      "id": "views",
+      "name": "views",
+      "filename": "views.duckdb",
+      "type": "duckdb",
+      "size_bytes": 1024000,
+      "sha256": "3f0e...",
+      "etag": "\"views-20260316\"",
+      "updated_at": "2026-03-16T11:20:00Z",
+      "download_url": "/artifacts/views/download"
+    }
+  ]
+}
+```
+
+**Campos obrigatórios:**
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `id` | string | Identificador único do artefato |
+| `name` | string | Nome legível |
+| `filename` | string | Nome do arquivo com extensão |
+| `type` | string | Tipo do artefato (`duckdb`, `parquet`) |
+| `download_url` | string | URL de download (absoluta ou relativa) |
+
+**Campos recomendados:**
+
+| Campo | Tipo | Descrição |
+|-------|------|-----------|
+| `size_bytes` | integer | Tamanho do arquivo em bytes |
+| `sha256` | string | Hash SHA-256 do arquivo final publicado |
+| `etag` | string | ETag para detecção de mudança |
+| `updated_at` | string (ISO 8601) | Data da última atualização |
+
+---
+
+### `GET /artifacts/:id/meta`
+
+Retorna somente os metadados de um artefato. Usado pelo duckpull para verificar se o arquivo local está desatualizado antes de iniciar um download.
+
+Mesma estrutura de campos do item em `GET /artifacts`.
+
+---
+
+### `GET /artifacts/:id/download`
+
+Retorna o conteúdo binário do arquivo.
+
+**Headers recomendados na resposta:**
+
+| Header | Descrição |
+|--------|-----------|
+| `Content-Type` | Tipo MIME do arquivo |
+| `Content-Length` | Tamanho em bytes (permite cálculo de progresso) |
+| `ETag` | Identificador da versão do arquivo |
+| `Last-Modified` | Data da última modificação |
+| `Content-Disposition` | Ex: `attachment; filename="views.duckdb"` |
+
+O duckpull suporta download em streaming — não é necessário carregar o arquivo inteiro em memória no servidor antes de responder.
+
+---
+
+## Comportamento esperado
+
+- `GET /artifacts` deve listar apenas artefatos publicados e prontos para distribuição.
+- O campo `sha256` deve refletir o hash do arquivo **final publicado** (não de versões intermediárias).
+- `download_url` pode ser absoluto (`https://...`) ou relativo ao `base_url` configurado.
+- Manter `ETag` e `Last-Modified` coerentes facilita a detecção de mudança e evita downloads desnecessários.
+- Downloads devem permitir streaming (resposta incremental, não buffered).
+
+---
+
+## Detecção de mudança
+
+O duckpull considera que um artefato precisa ser baixado novamente se qualquer uma das condições abaixo for verdadeira:
+
+- O arquivo local não existe
+- `sha256` remoto difere do registrado no último sync
+- `etag` remoto difere do registrado no último sync
+- `updated_at` remoto difere do registrado no último sync
+
+Se nenhum desses campos estiver disponível na resposta, o duckpull sempre fará o download.
+
+---
+
+## Endpoints opcionais (futuro)
+
+Não implementados no duckpull v1, mas previstos para versões futuras:
+
+```
+GET /artifacts/changes?since=<timestamp>   → artefatos modificados após uma data
+GET /artifacts/:id/history                 → histórico de versões
+SSE /artifacts/events                      → notificações em tempo real
+```
+</file>
+
 <file path="scripts/start-windows.bat">
 @echo off
 setlocal
@@ -673,6 +1028,179 @@ export async function openDirectory(path) {
     return false
   }
 }
+</file>
+
+<file path="docs/arquitetura.md">
+# Arquitetura do duckpull
+
+O duckpull é um cliente local de sincronização de artefatos. Ele roda no computador do usuário, conecta a uma API remota (DuckFlow), baixa arquivos de dados selecionados e os mantém atualizados automaticamente.
+
+---
+
+## Visão geral
+
+```
+Servidor remoto (DuckFlow)
+        │
+        │  HTTP + Bearer token
+        ▼
+┌─────────────────────────────────────────────┐
+│              duckpull (Bun)                 │
+│                                             │
+│  ┌──────────────┐     ┌───────────────────┐ │
+│  │  Servidor    │────▶│  Sync manager     │ │
+│  │  HTTP :5767  │     │  (agendador +     │ │
+│  │  (Elysia)    │     │   download)       │ │
+│  └──────┬───────┘     └────────┬──────────┘ │
+│         │                      │            │
+│         ▼                      ▼            │
+│  ┌──────────────┐     ┌───────────────────┐ │
+│  │  Interface   │     │  SQLite           │ │
+│  │  Vue 3 (SPA) │     │  (duckpull.db)    │ │
+│  └──────────────┘     └───────────────────┘ │
+└─────────────────────────────────────────────┘
+        │
+        ▼
+  data/runtime/synced-artifacts/
+  (arquivos .duckdb / .parquet locais)
+```
+
+---
+
+## Componentes
+
+### Servidor HTTP (`src/server/index.js`)
+Usa o framework [Elysia](https://elysiajs.com/) rodando sobre Bun. Expõe a API REST consumida pela interface e pelos scripts externos. Autentica todas as rotas protegidas via cookie de sessão.
+
+Principais rotas:
+
+| Rota | Descrição |
+|------|-----------|
+| `POST /api/auth/login` | Autenticação por senha |
+| `GET /api/settings` | Lê configurações salvas |
+| `PUT /api/settings` | Salva configurações e reinicia o agendador |
+| `POST /api/remote-artifacts/refresh` | Busca lista de artefatos no servidor remoto |
+| `PUT /api/artifacts/:id` | Marca/desmarca artefato para sincronização |
+| `POST /api/sync` | Dispara sincronização manual |
+| `GET /api/sync/status` | Retorna estado atual do runtime + artefatos + logs |
+| `POST /api/pick-directory` | Abre seletor de pasta nativo do OS |
+
+---
+
+### Autenticação (`src/server/auth.js`)
+Sessão baseada em cookie `HttpOnly` assinado com HMAC-SHA256. TTL de 12 horas. A senha é armazenada como hash bcrypt no banco. Sem JWT, sem dependências externas.
+
+---
+
+### Sincronização (`src/server/sync-manager.js`)
+Núcleo do sistema. Responsável por:
+
+- **Agendador** — dispara `requestSync` a cada N minutos (configurável). Reinicia quando as configurações mudam.
+- **Fila** — se uma sync já está rodando quando outra é solicitada, a nova fica enfileirada e executa logo em seguida.
+- **Ciclo por artefato** — para cada artefato selecionado:
+  1. Busca metadados frescos no servidor (`/artifacts/:id/meta`)
+  2. Compara `sha256`, `etag` e `updated_at` com o estado local
+  3. Se mudou: baixa para um arquivo `.tmp`, valida hash, substitui o arquivo final com rollback em caso de falha
+  4. Marca o arquivo como somente leitura após o sync
+- **Retry** — 3 tentativas com backoff em caso de erro por artefato
+- **Cleanup no boot** — artefatos travados em `downloading`/`finalizing` são liberados para nova tentativa
+
+---
+
+### Cliente de API remota (`src/server/remote-api.js`)
+Faz as chamadas HTTP ao servidor DuckFlow:
+
+- `GET /artifacts` — lista artefatos disponíveis
+- `GET /artifacts/:id/meta` — metadados para decisão de download
+- `GET /artifacts/:id/download` — download em streaming com controle de progresso, timeout total e timeout de stall
+
+---
+
+### Banco de dados (`src/server/db.js`)
+SQLite via `bun:sqlite`, com WAL mode. Cinco tabelas:
+
+| Tabela | Conteúdo |
+|--------|----------|
+| `app_config` | Configurações chave-valor (intervalo, pasta destino, etc.) |
+| `remote_sources` | URL e token do servidor remoto |
+| `artifacts` | Catálogo de artefatos conhecidos |
+| `artifact_sync_state` | Estado de cada artefato (status, progresso, erros, hashes) |
+| `sync_logs` | Log de eventos com nível e referência ao artefato |
+
+---
+
+### Interface (`src/client/`)
+SPA Vue 3 compilada pelo Vite (`dist/`). Servida como arquivos estáticos pelo próprio servidor Bun. Faz polling em `/api/sync/status` a cada 3 segundos para atualizar status de download em tempo real.
+
+---
+
+### Scripts de OS (`scripts/`)
+Scripts para Linux (bash) e Windows (PowerShell + .bat) que gerenciam o ciclo de vida do processo:
+
+- `start-*` — verifica PID, instala Bun se necessário, faz build do frontend se ausente, inicia em background
+- `stop-*` — lê o PID file e encerra o processo
+- `enable-autostart-*` / `disable-autostart-*` — registra/remove o serviço no systemd (Linux) ou no Agendador de Tarefas (Windows)
+
+---
+
+## Fluxo de dados
+
+```
+Usuário abre o navegador
+        │
+        ▼
+Interface Vue faz login → recebe cookie de sessão
+        │
+        ▼
+Usuário configura URL + token + pasta de destino
+        │
+        ▼
+Clica em "Atualizar lista" → duckpull chama GET /artifacts no DuckFlow
+        │
+        ▼
+Usuário seleciona quais artefatos quer sincronizar
+        │
+        ▼
+Sync manual ou agendador automático dispara
+        │
+        ├── Para cada artefato selecionado:
+        │       ├── Busca metadados frescos
+        │       ├── Compara com versão local
+        │       ├── Se mudou: baixa → valida sha256 → substitui arquivo
+        │       └── Atualiza estado no banco
+        │
+        ▼
+Arquivos disponíveis em data/runtime/synced-artifacts/
+```
+
+---
+
+## Configuração
+
+Variáveis de ambiente (arquivo `.env`):
+
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `DUCKPULL_HOST` | `127.0.0.1` | Endereço de escuta |
+| `DUCKPULL_PORT` | `5767` | Porta HTTP |
+| `DUCKPULL_DATA_DIR` | `./data/runtime` | Diretório de dados e banco |
+| `DUCKPULL_DOWNLOAD_TIMEOUT_MS` | `900000` | Timeout total de download (15 min) |
+| `DUCKPULL_STALL_TIMEOUT_MS` | `30000` | Timeout de stall por chunk (30 s) |
+
+---
+
+## Contrato da API remota
+
+O duckpull espera que o servidor remoto implemente:
+
+```
+GET /artifacts              → lista de artefatos com id, filename, type, download_url
+GET /artifacts/:id/meta     → metadados: sha256, etag, size_bytes, updated_at
+GET /artifacts/:id/download → binário em streaming
+```
+
+Autenticação via header `Authorization: Bearer <token>`.
+Detalhes completos em [`docs/duckflow-artifacts-api.md`](docs/duckflow-artifacts-api.md).
 </file>
 
 <file path="src/server/db.js">
@@ -3400,235 +3928,117 @@ export function getSyncStatus() {
 <file path="README.md">
 # duckpull
 
-`duckpull` é o cliente leve do ecossistema Duck. Ele roda sem Docker, expõe uma interface web local e sincroniza artefatos `.duckdb` e `.parquet` publicados pelo `duckflow`.
+Cliente leve de sincronização de artefatos do ecossistema Duck. Roda direto no seu computador — sem Docker — expõe uma interface web local e mantém arquivos `.duckdb` e `.parquet` publicados pelo DuckFlow sempre atualizados.
 
-Esta interface agora exige autenticação local por senha.
+> Arquitetura detalhada em [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
-## Objetivo
+---
 
-Resolver distribuição local de artefatos sem SMB, Syncthing ou FTP:
+## Como funciona
 
-- configura a URL remota do DuckFlow
-- usa autenticação por Bearer token
-- lista artefatos remotos publicados
-- permite selecionar quais artefatos manter localmente
-- baixa com arquivo temporário e troca segura
-- registra logs e status locais
-- executa sincronização manual ou automática
+1. Você configura a URL do servidor remoto (DuckFlow) e um token de acesso
+2. O duckpull lista os artefatos disponíveis e você escolhe quais quer manter localmente
+3. A sincronização roda automaticamente em segundo plano, no intervalo que você definir
+4. Se um arquivo não mudou, ele não é baixado de novo
 
-## Estrutura
+---
 
-```text
-duckpull/
-  src/
-    client/
-    server/
-  scripts/
-  docs/
-  data/
-```
+## Início rápido
 
-## Stack
-
-- Projeto único: Bun + Elysia + Vue 3 + Vite
-- Banco local: SQLite via `bun:sqlite`
-- Porta padrão: `http://localhost:5767`
-
-## Funcionalidades da V1
-
-- tela de configuração inicial
-- teste de conexão
-- listagem de artefatos remotos
-- seleção por artefato
-- sincronização manual
-- sincronização automática por intervalo
-- logs locais
-- status por artefato:
-  - `never_synced`
-  - `synchronized`
-  - `downloading`
-  - `error`
-  - `updated`
-
-## API local do duckpull
-
-- `GET /api/health`
-- `GET /api/settings`
-- `PUT /api/settings`
-- `POST /api/test-connection`
-- `GET /api/remote-artifacts`
-- `PUT /api/artifacts/:id`
-- `POST /api/sync`
-- `GET /api/sync/status`
-- `GET /api/logs`
-
-## Scripts
-
-Os scripts de `start` agora tentam preparar o ambiente automaticamente.
-
-Se o Bun não estiver instalado:
-
-- no Windows, o script tenta instalar via `winget` e faz fallback para o instalador oficial
-- no Linux, o script tenta instalar via `curl https://bun.sh/install`
-
-### Linux
-
+**Linux**
 ```bash
-cd duckpull
-chmod +x scripts/start-linux.sh scripts/stop-linux.sh
+chmod +x scripts/start-linux.sh
 ./scripts/start-linux.sh
-./scripts/stop-linux.sh
 ```
 
-### Windows
-
-Use preferencialmente os arquivos `.bat`:
-
+**Windows**
 ```bat
-cd duckpull
 scripts\start-windows.bat
-scripts\stop-windows.bat
 ```
 
-Os `.ps1` continuam existindo internamente, mas os `.bat` são a entrada mais simples para o usuário final.
+Os scripts cuidam de tudo: instalam o Bun se necessário, fazem o build do frontend e sobem o serviço em segundo plano.
 
-O script de `start`:
+Depois, acesse:
+```
+http://localhost:5767
+```
 
-- cria `.env` se faltar
-- tenta instalar/configurar o Bun se ele não existir
-- roda `bun install`
-- faz o build se `dist/` não existir
-- sobe o serviço em segundo plano
-- salva PID em `data/runtime/duckpull.pid`
-- grava log em `data/runtime/duckpull.log`
-- no Windows, erros também vão para `data/runtime/duckpull-error.log`
+A senha inicial é `@trunks.`
 
-O script de `stop` encerra o processo salvo no PID file.
+---
 
-### Autostart
+## Configuração
 
-Linux:
+Na tela inicial, preencha:
 
+| Campo | Descrição |
+|-------|-----------|
+| API base URL | Endereço do servidor DuckFlow |
+| Token Bearer | Chave de acesso à API remota |
+| Pasta de destino | Onde os arquivos serão salvos localmente |
+| Intervalo de sync | A cada quantos minutos verificar novidades |
+| Sincronização automática | Liga/desliga o agendador |
+
+O botão **Escolher...** abre o seletor de pasta nativo do sistema operacional.
+
+Variáveis de ambiente disponíveis no `.env`:
+
+```env
+DUCKPULL_HOST=127.0.0.1
+DUCKPULL_PORT=5767
+DUCKPULL_DATA_DIR=./data/runtime
+DUCKPULL_DOWNLOAD_TIMEOUT_MS=900000
+DUCKPULL_STALL_TIMEOUT_MS=30000
+```
+
+---
+
+## Autostart
+
+**Linux** — via systemd do usuário:
 ```bash
 ./scripts/enable-autostart-linux.sh
 ./scripts/disable-autostart-linux.sh
 ```
 
-Windows:
-
+**Windows** — via Agendador de Tarefas:
 ```bat
 scripts\enable-autostart-windows.bat
 scripts\disable-autostart-windows.bat
 ```
 
-No Linux, o autostart usa `systemd --user`.
-No Windows, usa o Agendador de Tarefas no logon do usuário.
+---
 
-## Configuração
+## Dados locais
 
-A senha inicial de acesso é `@trunks.`.
+| Caminho | Conteúdo |
+|---------|----------|
+| `data/runtime/duckpull.db` | Banco SQLite (configurações, histórico, estado dos artefatos) |
+| `data/runtime/synced-artifacts/` | Arquivos baixados (pasta padrão, alterável na interface) |
+| `data/runtime/duckpull.log` | Log do processo |
 
-Ela não é salva em texto puro: o `duckpull` grava apenas o hash criptográfico no SQLite local.
+---
 
-Depois de subir o serviço, abra:
+## Stack
 
-```text
-http://localhost:5767
+- **Runtime:** [Bun](https://bun.sh)
+- **Servidor:** [Elysia](https://elysiajs.com)
+- **Interface:** Vue 3 + Vite
+- **Banco:** SQLite via `bun:sqlite`
+
+---
+
+## Contrato da API remota
+
+O duckpull espera os seguintes endpoints no servidor DuckFlow:
+
+```
+GET /artifacts              → lista artefatos disponíveis
+GET /artifacts/:id/meta     → metadados (sha256, etag, tamanho)
+GET /artifacts/:id/download → download em streaming
 ```
 
-Na tela inicial configure:
-
-- `API base URL`
-- `Token Bearer`
-- `Pasta de destino`
-- botão `Escolher...` para abrir o seletor nativo de pasta no sistema operacional
-- `Intervalo de sincronização`
-- `Sincronização automática`
-
-## Persistência local
-
-O banco SQLite é criado em:
-
-```text
-duckpull/data/runtime/duckpull.db
-```
-
-Por padrão, os artefatos sincronizados ficam em:
-
-```text
-duckpull/data/runtime/synced-artifacts
-```
-
-Você pode trocar a pasta de destino pela interface.
-
-## Segurança de atualização de arquivo
-
-O download sempre acontece para um arquivo temporário primeiro.
-
-Fluxo:
-
-1. baixa para `arquivo.tmp`
-2. valida checksum quando `sha256` existe
-3. troca o arquivo final
-4. em caso de falha na substituição, mantém rollback do original
-
-## Resiliência operacional
-
-O `duckpull` agora inclui:
-
-- timeout total de download
-- timeout de download parado
-- tentativas automáticas com backoff
-- limpeza automática de arquivos `.tmp` e `.bak` órfãos
-- fila simples para evitar syncs concorrentes
-- autostart opcional no Windows e Linux
-
-Variáveis opcionais no `.env`:
-
-```text
-DUCKPULL_DOWNLOAD_TIMEOUT_MS=900000
-DUCKPULL_STALL_TIMEOUT_MS=30000
-DUCKPULL_RETRY_COUNT=3
-DUCKPULL_RETRY_BACKOFF_MS=2000
-```
-
-## Contrato esperado do DuckFlow
-
-O contrato remoto esperado está em:
-
-[docs/duckflow-artifacts-api.md](/Users/raniere/Dev/duck_project/duckpull/docs/duckflow-artifacts-api.md)
-
-## Desenvolvimento
-
-### Projeto único
-
-```bash
-cd duckpull
-bun install
-bun run dev
-```
-
-### UI em modo Vite
-
-```bash
-cd duckpull
-bun run dev:web
-```
-
-### Build e execução local
-
-```bash
-cd duckpull
-bun install
-bun run build
-bun start
-```
-
-## Observações
-
-- O `duckpull` não altera `duckflow` nem `duckpad`.
-- O contrato remoto do DuckFlow foi apenas documentado nesta V1.
-- O servidor local serve a build estática do frontend quando `dist/` existir.
+Detalhes completos em [`docs/duckflow-artifacts-api.md`](docs/duckflow-artifacts-api.md).
 </file>
 
 </files>
